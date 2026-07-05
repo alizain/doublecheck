@@ -33,7 +33,7 @@ missing token / checks / image abort loudly up front.
 ## Setup
 
 ```bash
-npm install -g doublecheck   # or, from a clone: pnpm install
+npm install -g @alizain/doublecheck   # installs the `doublecheck` command; or, from a clone: pnpm install
 ```
 
 Guests boot from a locally built image. Build it once from a clone of this
