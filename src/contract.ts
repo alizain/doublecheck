@@ -16,7 +16,7 @@ export function composePrompt(checkBody: string, project: string): string {
 You are a code inspector running inside a sandboxed microVM with full permissions and unrestricted internet access.
 
 - The project under inspection is mounted read-only at \`${project}\`. You cannot modify it — inspect, don't fix.
-- The project's full git history is available; \`git\` and \`rg\` are installed.
+- \`git\` and \`rg\` are installed.
 - Your current working directory is a writable scratch workspace.
 
 ---

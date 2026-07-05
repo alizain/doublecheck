@@ -7,7 +7,7 @@ describe("claudeAgent", () => {
 	it("runs headless claude reading the staged prompt, writing no session", () => {
 		expect(spec.command).toContain("claude -p")
 		expect(spec.command).toContain("--dangerously-skip-permissions")
-		expect(spec.command).toContain("--output-format stream-json")
+		expect(spec.command).toContain("--output-format stream-json --verbose")
 		expect(spec.command).toContain("< prompt.txt")
 	})
 

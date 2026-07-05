@@ -17,7 +17,9 @@ export function claudeAgent(opts: {
 		command:
 			"claude -p --no-session-persistence " +
 			"--dangerously-skip-permissions " +
-			"--output-format stream-json " +
+			// --verbose is required by claude -p with stream-json output; it only
+			// widens what lands on stdout, which describeStreamLine already labels.
+			"--output-format stream-json --verbose " +
 			`--tools Task Bash Read Write Edit Glob Grep WebSearch WebFetch < ${PROMPT_FILE}`,
 		env: {
 			HOME: GUEST_HOME,
@@ -58,6 +60,8 @@ export function describeStreamLine(line: string): string | null {
 		return null
 	}
 	const label = (obj.type ?? "") + (obj.subtype ? `:${obj.subtype}` : "")
+	// A once-per-second heartbeat with no content — pure noise in the stream.
+	if (label === "system:thinking_tokens") return null
 	let detail = ""
 	if (obj.type === "assistant") {
 		detail = ` ${obj.message?.content?.[0]?.text?.length ?? 0} chars`
