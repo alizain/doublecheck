@@ -10,6 +10,33 @@ frontmatter, no schema — the body is the inspector's instructions, and scoping
 harness computes no diffs and knows nothing about git. **A report is a
 markdown file:** whatever the agent writes, no imposed structure.
 
+## Why this exists
+
+Linters and type checkers catch what can be pattern-matched. The defects that
+survive them are judgment calls: a silent fallback that swallows a config
+error, an abstraction at the wrong layer, a "for now" that will outlive its
+author. doublecheck encodes *your* judgment about those — each check is a
+standard you actually hold, written as prose instructions to an inspector
+agent that can read the whole tree and reason about it.
+
+The division of labor is deliberate: everything that requires judgment lives
+in the check body (what to flag, what to leave alone, where to look);
+everything mechanical lives in the harness (sandboxing, parallelism, report
+collection). The harness knows nothing about git, diffs, or languages, so it
+never needs to change when your standards do.
+
+## The loop
+
+1. **`doublecheck mine`** distills your Claude Code history into durable
+   preference observations (`~/.doublecheck/catalog`) — evidence of standards
+   you have actually enforced in past conversations.
+2. **A human and/or agent authors checks** from those observations. This step
+   is deliberately unproductized: going from "observed preference" to
+   "runnable standard" is judgment work.
+3. **`doublecheck check`** runs every check against a project, one sandboxed
+   agent per check, and writes one report per check. Read the reports, fix
+   what is real, tighten any check that cried wolf.
+
 ## How it works
 
 Per check: a scratch workdir gets `prompt.txt` (environment preamble + check
@@ -86,7 +113,29 @@ end-to-end:
 CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check --project fixtures/planted --model haiku
 ```
 
-## Development
+## Authoring a check
+
+Write the body as instructions to a competent inspector who has your whole
+repo read-only and knows nothing about your intent beyond what you write.
+What makes a check work:
+
+- **State the scope in prose.** "Inspect files changed vs main", "the whole
+  tree", "only `src/`" — the inspector has git and ripgrep and computes its
+  own diffs; the harness will not do it.
+- **Teach discrimination, not detection.** The failure mode of LLM inspectors
+  is flagging everything that pattern-matches. Spell out what must NOT be
+  flagged with the same care as what must. `.agents/checks/no-silent-fallbacks.md`
+  is the exemplar: `title ?? "Untitled"` (designed default) passes,
+  `config.url ?? "http://localhost:3000"` (bug-hiding default) fails.
+- **Ask for confidence-ranked findings with file:line evidence** so the report
+  reads top-down: the first finding should be the one most worth a human's
+  minute.
+- **Calibrate against a planted fixture** before trusting a check — a tiny
+  target with defects it must flag *and* look-alikes it must not
+  (`fixtures/planted/` is the pattern).
+
+Model choice matters: `check` defaults to haiku (cheap, fine for
+well-discriminated checks); judgment-heavy checks may need `--model opus`.
 
 ```bash
 pnpm doublecheck # run the CLI from source (tsx)
