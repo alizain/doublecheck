@@ -20,6 +20,11 @@ export function claudeAgent(opts: {
 			// --verbose is required by claude -p with stream-json output; it only
 			// widens what lands on stdout, which describeStreamLine already labels.
 			"--output-format stream-json --verbose " +
+			// Not a permission gate — a contract guard. The default headless tool
+			// set omits Glob/Grep and includes harness tools (ReportFindings,
+			// TaskCreate, …) that hijack the report: haiku "reports findings"
+			// through them and never writes report.md (verified live). This pins
+			// the inspector's full toolkit and nothing else.
 			`--tools Task Bash Read Write Edit Glob Grep WebSearch WebFetch < ${PROMPT_FILE}`,
 		env: {
 			HOME: GUEST_HOME,

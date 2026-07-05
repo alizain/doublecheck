@@ -25,7 +25,9 @@ ${checkBody}
 
 ---
 
-## Report
+## Report — the only output that counts
 
-Write your findings as plain markdown to \`./${REPORT_FILE}\` in your working directory. Build it incrementally — start writing early and refine as you learn more; the final state of \`${REPORT_FILE}\` when you finish is the check's report.`
+Your final chat reply is discarded. The only thing read back is the file \`./${REPORT_FILE}\` in your working directory — if it does not exist when you exit, this check run FAILS.
+
+So: create \`./${REPORT_FILE}\` with the Write tool BEFORE you start inspecting (a title line is enough), and update it as you work. The final state of the file when you finish is the check's report.`
 }

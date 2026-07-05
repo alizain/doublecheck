@@ -8,6 +8,11 @@ describe("claudeAgent", () => {
 		expect(spec.command).toContain("claude -p")
 		expect(spec.command).toContain("--dangerously-skip-permissions")
 		expect(spec.command).toContain("--output-format stream-json --verbose")
+		// The pinned toolkit is a contract guard: the default headless set lacks
+		// Glob/Grep and its harness tools (ReportFindings, …) swallow the report.
+		expect(spec.command).toContain(
+			"--tools Task Bash Read Write Edit Glob Grep WebSearch WebFetch",
+		)
 		expect(spec.command).toContain("< prompt.txt")
 	})
 

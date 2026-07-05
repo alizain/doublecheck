@@ -16,9 +16,10 @@ Per check: a scratch workdir gets `prompt.txt` (environment preamble + check
 body + report contract). A [microsandbox](https://github.com/superradcompany/microsandbox)
 microVM boots from a locally built image with the project bind-mounted
 **read-only at its real host path** and the scratch dir mounted rw as the
-guest cwd. `claude -p` runs inside with full tools and no permission gates —
-the microVM is the safety boundary, the ro mount is the "don't touch my repo"
-guarantee. The agent writes `report.md`; the host copies it to
+guest cwd. `claude -p` runs inside with the full inspector toolkit (Task,
+Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch) and no permission
+gates — the microVM is the safety boundary, the ro mount is the "don't touch
+my repo" guarantee. The agent writes `report.md`; the host copies it to
 `$OUTPUT/<run-timestamp>/<check>.md`.
 
 The project is never copied — every guest shares the live host directory
