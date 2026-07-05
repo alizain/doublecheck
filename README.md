@@ -99,8 +99,43 @@ Design record: `docs/2026-07-05-doublecheck-design.md`.
 
 ## Releasing
 
-Manual, via the `release` GitHub Actions workflow (semantic-release over
-Conventional Commits — a `feat:`/`fix:` commit is what makes the next run
-release). Dispatch it with `dry_run` checked to preview the version + notes,
-then re-run unchecked to publish to npm and cut the GitHub Release. Needs the
-`NPM_TOKEN` repo secret.
+Manual, via the `release` GitHub Actions workflow — semantic-release over
+Conventional Commits, ported from pggit. Nothing releases as a side effect of
+pushing to main.
+
+```bash
+gh workflow run release -f dry_run=true    # preview next version + notes, publish nothing
+gh workflow run release -f dry_run=false   # ship: npm publish + GitHub Release + tag
+```
+
+- **Only `feat:` / `fix:` / `BREAKING CHANGE:` commits trigger a release** and
+  decide the bump (minor / patch / major). Other commit styles ride along
+  unreleased — use `docs:`/`chore:`/plain messages for work that shouldn't ship
+  a version.
+- `version` in package.json stays `0.0.0-development` forever — semantic-release
+  derives the real version from git tags. Never hand-bump it.
+- The pre-publish gate is biome + tsc + **unit tests only** (`test:unit`
+  excludes `*.integration.test.ts`, which boots real microsandbox guests CI
+  doesn't have) + tsdown build. Run the full `pnpm test` locally before
+  releasing.
+- Needs the `NPM_TOKEN` repo secret: a token that can publish
+  `@alizain/doublecheck` without an OTP prompt — classic "Automation" type, or
+  a granular token with read/write package access (and 2FA bypass if the
+  account requires 2FA for writes).
+
+Learned the hard way on the first release (2026-07-05):
+
+- **A failed `npm publish` leaves a stale tag.** semantic-release pushes
+  `vX.Y.Z` *before* publishing to npm. If the publish step fails, delete the
+  tag (`git push origin :refs/tags/vX.Y.Z`) before retrying — otherwise the
+  retry sees the tag as the last release, finds no new conventional commits,
+  and releases nothing.
+- **The package is scoped because npm forbids unscoped `doublecheck`.** The
+  name-similarity rule (`DoubleCheck` and `double-check` exist) rejects it with
+  a 403 at publish time only — registry lookups 404 as if the name were free.
+  The installed bin is still `doublecheck`; `publishConfig.access: public` is
+  what keeps a scoped package from defaulting to private.
+- **npm provenance/OIDC is off on purpose** — the presence of `id-token: write`
+  makes npm 11.x prefer trusted publishing and 404 when none is configured
+  (npm/cli#8976). Details in the comment block of
+  `.github/workflows/release.yml`.
