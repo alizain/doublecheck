@@ -11,7 +11,7 @@ the machine and runs one sandboxed agent per real conversation to extract
 into a personal, append-only catalog. The catalog feeds the deliberately
 *unproductized* middle: humans and agents collaboratively shape observations
 into checks (or memory files, or docs, or nothing). `mine` is a workflow and
-`run` is a workflow; everything between them stays messy on purpose.
+`check` is a workflow; everything between them stays messy on purpose.
 
 Broad by design: the June 2026 gate-mining run kept only gate-shaped
 candidates and discarded process/workflow/style signal as `rejected`. `mine`
@@ -26,7 +26,7 @@ doublecheck mine [--projects DIR=~/.claude/projects] [--catalog DIR=~/.doubleche
                  [--limit N] [--dry-run]
 ```
 
-- `--model` defaults to **opus** — deliberately opposite of `run`'s haiku. A
+- `--model` defaults to **opus** — deliberately opposite of `check`'s haiku. A
   bad-model mine pollutes a durable asset; cheap test-drives say
   `--model haiku --limit 3` explicitly.
 - `--dry-run` lists each unit's status (new / changed / mined / below-threshold)
@@ -76,7 +76,7 @@ Hash-compare is the fast path — already-mined sessions are never parsed. A
 changed (resumed/grown) session re-mines and overwrites its own folder. No
 manifest files.
 
-**Failure semantics differ from `run` deliberately:** a failed mine writes
+**Failure semantics differ from `check` deliberately:** a failed mine writes
 *nothing* to the catalog (next run retries), logs loud, and exits non-zero.
 Failure records don't belong in a durable append-only asset.
 
@@ -90,14 +90,14 @@ Failure records don't belong in a durable append-only asset.
 - **Prompt:** adapted June mining prompt (broadened admission, same
   grep-the-source instruction: for terse corrections/interruptions, grep the
   source jsonl and read the assistant turns just before — never read a
-  transcript whole) + the same hardened report contract as `run`
+  transcript whole) + the same hardened report contract as `check`
   ("report.md is the only output that counts").
 - **Sandbox per unit:** transcripts dir mounted **read-only** (the miner
   greps sources), scratch rw as cwd, claude adapter unchanged. **Network
   disabled** (`disableNetwork()`): the whole personal corpus is mounted and
   mining needs no internet — that combination must not exist. The runner
-  grows one option (`network: "all" | "none"`); `run` keeps allowAll.
-- p-queue caps concurrent guests, exactly as `run`.
+  grows one option (`network: "all" | "none"`); `check` keeps allowAll.
+- p-queue caps concurrent guests, exactly as `check`.
 
 ## Prior catalog
 

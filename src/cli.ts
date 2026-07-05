@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path"
 import { Command } from "commander"
-import { run } from "./run.ts"
+import { runChecks } from "./check.ts"
 
 function parsePositiveInt(flag: string) {
 	return (v: string): number => {
@@ -18,7 +18,7 @@ const program = new Command()
 	)
 
 program
-	.command("run")
+	.command("check")
 	.option("--project <dir>", "project to inspect", process.cwd())
 	.option("--model <model>", "model for the inspector agents", "haiku")
 	.option("--parallel <n>", "max concurrent checks", parsePositiveInt("--parallel"), 4)
@@ -31,7 +31,7 @@ program
 	)
 	.action(async (opts) => {
 		const project = resolve(opts.project)
-		const ok = await run({
+		const ok = await runChecks({
 			project,
 			model: opts.model,
 			parallel: opts.parallel,

@@ -12,8 +12,8 @@ importers:
         specifier: ^14.0.3
         version: 14.0.3
       microsandbox:
-        specifier: ^0.6.2
-        version: 0.6.3
+        specifier: ^0.6.4
+        version: 0.6.4
       p-queue:
         specifier: ^9.0.0
         version: 9.3.1
@@ -528,34 +528,34 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@superradcompany/microsandbox-darwin-arm64@0.6.3':
-    resolution: {integrity: sha512-a7nbTZKSbLLs9FVUEh9N9WOb8El/Fuqu92MK327/JxJw2WmT0iXuFP7ZxvdJsmbGGsHtGozWIRIfsGmn8wBbtw==}
+  '@superradcompany/microsandbox-darwin-arm64@0.6.4':
+    resolution: {integrity: sha512-ZvDvIu1O+7BsQ7+gSvmMbP1eP/FgCogRQwc9DRPeInTykKD6QKmE65GwGhS1qQSkX03HbUfClCRCUwmnDogQ7Q==}
     engines: {node: '>= 22'}
     cpu: [arm64]
     os: [darwin]
 
-  '@superradcompany/microsandbox-linux-arm64-gnu@0.6.3':
-    resolution: {integrity: sha512-9DKZWCfw7wOvetLUklw9EztysYeRdmzc7cMu79GnACsUv3iDSgC9pgrbLiGEL6NwfVLdKfx1dY4glHW/57RlNA==}
+  '@superradcompany/microsandbox-linux-arm64-gnu@0.6.4':
+    resolution: {integrity: sha512-ydwWWNetwDcMN0VZYlzLpujv9Dm70ipr7ElwW4B20Vwn5fo2BWqflq628cZFaZrkBKvFGuLkrs57qtcRiF1AoA==}
     engines: {node: '>= 22'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@superradcompany/microsandbox-linux-x64-gnu@0.6.3':
-    resolution: {integrity: sha512-4uViBaA7t4g6EVStWuIHgXbSFjjGsrOyDvl7zfFJfCUaA2KXcxPSKkrtpuHPsTnO6AXl2OwZda+goD11bwAajg==}
+  '@superradcompany/microsandbox-linux-x64-gnu@0.6.4':
+    resolution: {integrity: sha512-ddU5C3/IZb7iXyg0eme7nXRORxZyR2sshummAbgTOBQ/PopArM0vBdvUth3/C+M0W8/9r7v1GBZRHD/Ep8I+Mw==}
     engines: {node: '>= 22'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@superradcompany/microsandbox-win32-arm64-msvc@0.6.3':
-    resolution: {integrity: sha512-wIm1HDXqFj4GOkvd6Ql8n0qMD8B1tuvOUHSe7lRWe8B4Pc1w8EI3ExBXJr/Q/POPCA1w7hWgUPKcaTVvMd0Ywg==}
+  '@superradcompany/microsandbox-win32-arm64-msvc@0.6.4':
+    resolution: {integrity: sha512-Sti3rX+FYasEwVBLqwpy2qZFXPcSpqXv3nlSfChfbjq/J18jTx2YVbl51S9lsjdyxBjGHGFZAITdX7kCJJva0Q==}
     engines: {node: '>= 22'}
     cpu: [arm64]
     os: [win32]
 
-  '@superradcompany/microsandbox-win32-x64-msvc@0.6.3':
-    resolution: {integrity: sha512-2M1VsU7IOL3NNYF/7+Cr+Dj+R1NetJGvwcM+M7DYZJhMJLOyxcJG7Qqr/cGYHrDwuKG5Pl5nBbCH6RZXBxdodw==}
+  '@superradcompany/microsandbox-win32-x64-msvc@0.6.4':
+    resolution: {integrity: sha512-Ufqy8h9nW1PKoHFYVDGMVMqNETMqprQortktBTr4awgDgkkrBsg+6+9dMdBo7k1W3PccrCHxan4Qd+eqJcCBnA==}
     engines: {node: '>= 22'}
     cpu: [x64]
     os: [win32]
@@ -662,8 +662,8 @@ packages:
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
-  microsandbox@0.6.3:
-    resolution: {integrity: sha512-M2CGWRmaP0KlxwpY2QvnotxeoQWoFSZ4/4Hl8iQYDxH1zk8NqCZ7/aBoSHVo3g2r7JHMARxM9cHUaCtIbOoWTw==}
+  microsandbox@0.6.4:
+    resolution: {integrity: sha512-l3CZJLDpVM97hrob72KRjpOG+DLExK+S9unZ3X7azbzXEXXmZCFBKtw0gVHEkm8qalinaZjIATSL+zUwkdUT+w==}
     engines: {node: '>= 22'}
     hasBin: true
 
@@ -1073,19 +1073,19 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.62.2':
     optional: true
 
-  '@superradcompany/microsandbox-darwin-arm64@0.6.3':
+  '@superradcompany/microsandbox-darwin-arm64@0.6.4':
     optional: true
 
-  '@superradcompany/microsandbox-linux-arm64-gnu@0.6.3':
+  '@superradcompany/microsandbox-linux-arm64-gnu@0.6.4':
     optional: true
 
-  '@superradcompany/microsandbox-linux-x64-gnu@0.6.3':
+  '@superradcompany/microsandbox-linux-x64-gnu@0.6.4':
     optional: true
 
-  '@superradcompany/microsandbox-win32-arm64-msvc@0.6.3':
+  '@superradcompany/microsandbox-win32-arm64-msvc@0.6.4':
     optional: true
 
-  '@superradcompany/microsandbox-win32-x64-msvc@0.6.3':
+  '@superradcompany/microsandbox-win32-x64-msvc@0.6.4':
     optional: true
 
   '@types/estree@1.0.9': {}
@@ -1230,13 +1230,13 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  microsandbox@0.6.3:
+  microsandbox@0.6.4:
     optionalDependencies:
-      '@superradcompany/microsandbox-darwin-arm64': 0.6.3
-      '@superradcompany/microsandbox-linux-arm64-gnu': 0.6.3
-      '@superradcompany/microsandbox-linux-x64-gnu': 0.6.3
-      '@superradcompany/microsandbox-win32-arm64-msvc': 0.6.3
-      '@superradcompany/microsandbox-win32-x64-msvc': 0.6.3
+      '@superradcompany/microsandbox-darwin-arm64': 0.6.4
+      '@superradcompany/microsandbox-linux-arm64-gnu': 0.6.4
+      '@superradcompany/microsandbox-linux-x64-gnu': 0.6.4
+      '@superradcompany/microsandbox-win32-arm64-msvc': 0.6.4
+      '@superradcompany/microsandbox-win32-x64-msvc': 0.6.4
 
   ms@2.1.3: {}
 

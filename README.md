@@ -40,7 +40,7 @@ pnpm install
 ## Usage
 
 ```bash
-CLAUDE_CODE_OAUTH_TOKEN=... pnpm doublecheck run \
+CLAUDE_CODE_OAUTH_TOKEN=... pnpm doublecheck check \
   --project DIR      # default: cwd
   --model MODEL      # default: haiku
   --parallel N       # default: 4 concurrent guests
@@ -56,7 +56,7 @@ two legitimate defaults that must not be flagged) for exercising the tool
 end-to-end:
 
 ```bash
-CLAUDE_CODE_OAUTH_TOKEN=... pnpm doublecheck run --project fixtures/planted --model haiku
+CLAUDE_CODE_OAUTH_TOKEN=... pnpm doublecheck check --project fixtures/planted --model haiku
 ```
 
 ## Development
