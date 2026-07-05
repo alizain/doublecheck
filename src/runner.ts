@@ -5,7 +5,7 @@ import { REPORT_FILE } from "./contract.ts"
 
 // microsandbox exports its fluent builders as value-only consts; recover their
 // instance types via a type-only import (erased at build) so the native module
-// only loads behind the `await import` in runCheck.
+// only loads behind the `await import` in runAgent.
 type MountBuilder = InstanceType<typeof import("microsandbox").MountBuilder>
 type PatchBuilder = InstanceType<typeof import("microsandbox").PatchBuilder>
 type ExecOptionsBuilder = InstanceType<typeof import("microsandbox").ExecOptionsBuilder>
@@ -37,26 +37,36 @@ export interface AgentSpec {
 	files: GuestFile[]
 }
 
-export type CheckOutcome =
+export type AgentOutcome =
 	| { ok: true; report: string }
 	| { ok: false; reason: string; partialReport: string | null }
 
-export interface RunCheckOpts {
-	project: string
+export interface RunAgentOpts {
+	// Host dir the agent inspects, bind-mounted READ-ONLY at its real host
+	// path: the project for `check`, the transcripts corpus for `mine`.
+	mount: string
 	// Scratch dir with PROMPT_FILE already inside; bind-mounted rw as the guest
 	// cwd at its identical host path, so the agent's report lands back on the host.
 	workdir: string
 	spec: AgentSpec
+	// "all" for checks (inspectors may research); "none" for miners (the
+	// personal corpus is mounted — that data and an open network must not
+	// coexist in one guest).
+	network: "all" | "none"
 	onLine: (kind: "stdout" | "stderr", line: string) => void
 }
 
-// Boot a guest (project ro at its real host path + scratch rw as cwd), exec
-// the agent command, stream its output line-by-line, read the report back off
-// the scratch dir, tear down. Agent-level failures (exit ≠ 0, no report)
-// return ok:false; harness-level failures (image missing, boot error) throw.
-export async function runCheck(opts: RunCheckOpts): Promise<CheckOutcome> {
+// Boot a guest (ro mount + scratch rw as cwd), exec the agent command, stream
+// its output line-by-line, read the report back off the scratch dir, tear
+// down. Agent-level failures (exit ≠ 0, no report) return ok:false;
+// harness-level failures (image missing, boot error) throw.
+export async function runAgent(opts: RunAgentOpts): Promise<AgentOutcome> {
 	const microsandbox = await import("microsandbox")
 	const name = `doublecheck-${basename(opts.workdir)}`
+	const policy =
+		opts.network === "all"
+			? microsandbox.NetworkPolicy.allowAll()
+			: microsandbox.NetworkPolicy.none()
 	let sandbox: InstanceType<typeof microsandbox.Sandbox> | null = null
 	try {
 		try {
@@ -67,9 +77,7 @@ export async function runCheck(opts: RunCheckOpts): Promise<CheckOutcome> {
 				.replace()
 				.workdir(opts.workdir)
 				.envs(opts.spec.env)
-				.volume(opts.project, (mb: MountBuilder) =>
-					mb.bind(opts.project).readonly(),
-				)
+				.volume(opts.mount, (mb: MountBuilder) => mb.bind(opts.mount).readonly())
 				.volume(opts.workdir, (mb: MountBuilder) => mb.bind(opts.workdir))
 				.patch((pb: PatchBuilder) => {
 					let p = pb
@@ -78,9 +86,7 @@ export async function runCheck(opts: RunCheckOpts): Promise<CheckOutcome> {
 					}
 					return p
 				})
-				.network((nb: NetworkBuilder) =>
-					nb.policy(microsandbox.NetworkPolicy.allowAll()),
-				)
+				.network((nb: NetworkBuilder) => nb.policy(policy))
 				.create()
 		} catch (e) {
 			if (String(e).includes("not cached")) {

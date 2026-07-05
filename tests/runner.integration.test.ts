@@ -7,7 +7,7 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { PROMPT_FILE } from "../src/contract.ts"
 import type { AgentSpec } from "../src/runner.ts"
-import { runCheck } from "../src/runner.ts"
+import { runAgent } from "../src/runner.ts"
 
 const PROJECT = join(import.meta.dirname, "..")
 const TIMEOUT = 120_000
@@ -22,18 +22,19 @@ function fakeAgent(command: string, files: AgentSpec["files"] = []): AgentSpec {
 	return { command, env: { HOME: "/root" }, files }
 }
 
-describe("runCheck against a real guest", () => {
+describe("runAgent against a real guest", () => {
 	it(
-		"delivers staged files, mounts the project ro, and returns the report",
+		"delivers staged files, mounts ro, and returns the report",
 		async () => {
 			const workdir = scratchWithPrompt()
 			const lines: string[] = []
-			const outcome = await runCheck({
-				project: PROJECT,
+			const outcome = await runAgent({
+				mount: PROJECT,
 				workdir,
+				network: "all",
 				// The fake agent proves each contract piece in one boot: reads the
-				// ro project mount and a staged guest file into the report, fails
-				// to write into the project, echoes progress on stdout.
+				// ro mount and a staged guest file into the report, fails to write
+				// into the mount, echoes progress on stdout.
 				spec: fakeAgent(
 					[
 						`head -c 4 ${PROJECT}/package.json > report.md`,
@@ -54,12 +55,33 @@ describe("runCheck against a real guest", () => {
 	)
 
 	it(
+		'network "none" actually blocks egress',
+		async () => {
+			const workdir = scratchWithPrompt()
+			const outcome = await runAgent({
+				mount: PROJECT,
+				workdir,
+				network: "none",
+				// curl must FAIL; the report records what happened either way, so
+				// the assertion reads the guest's own account of it.
+				spec: fakeAgent(
+					"if curl -sS --max-time 5 https://example.com -o /dev/null 2>/dev/null; then echo reached > report.md; else echo blocked > report.md; fi",
+				),
+				onLine: () => {},
+			})
+			expect(outcome).toEqual({ ok: true, report: "blocked\n" })
+		},
+		TIMEOUT,
+	)
+
+	it(
 		"reports failure with the partial report when the agent exits non-zero",
 		async () => {
 			const workdir = scratchWithPrompt()
-			const outcome = await runCheck({
-				project: PROJECT,
+			const outcome = await runAgent({
+				mount: PROJECT,
 				workdir,
+				network: "all",
 				spec: fakeAgent("echo partial > report.md && exit 3"),
 				onLine: () => {},
 			})
@@ -76,9 +98,10 @@ describe("runCheck against a real guest", () => {
 		"reports failure when the agent exits 0 without writing a report",
 		async () => {
 			const workdir = scratchWithPrompt()
-			const outcome = await runCheck({
-				project: PROJECT,
+			const outcome = await runAgent({
+				mount: PROJECT,
 				workdir,
+				network: "all",
 				spec: fakeAgent("true"),
 				onLine: () => {},
 			})

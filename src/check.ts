@@ -4,7 +4,7 @@ import { join } from "node:path"
 import PQueue from "p-queue"
 import { claudeAgent, describeStreamLine } from "./claude.ts"
 import { composePrompt, PROMPT_FILE, REPORT_FILE } from "./contract.ts"
-import { runCheck } from "./runner.ts"
+import { runAgent } from "./runner.ts"
 
 // A check is a plain markdown file in $PROJECT/.agents/checks — no
 // frontmatter, no schema. The body is the inspector's instructions; the name
@@ -77,10 +77,11 @@ async function runOneCheck(
 	const workdir = mkdtempSync(join(tmpdir(), `doublecheck-${check.name}-`))
 	writeFileSync(join(workdir, PROMPT_FILE), composePrompt(check.body, opts.project))
 	const spec = claudeAgent({ token, model: opts.model, workdir })
-	const outcome = await runCheck({
-		project: opts.project,
+	const outcome = await runAgent({
+		mount: opts.project,
 		workdir,
 		spec,
+		network: "all",
 		onLine: (kind, line) => {
 			if (kind === "stderr") {
 				process.stderr.write(`[${check.name}] ! ${line}\n`)
