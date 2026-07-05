@@ -1,0 +1,68 @@
+name: release
+
+# Manual, semantic-release-driven publish of doublecheck to npm.
+#
+# semantic-release reads the Conventional Commit history, derives the next
+# version, publishes to npm, and cuts the matching GitHub Release. This workflow
+# only runs on demand (workflow_dispatch) so a release is always a deliberate
+# act, not a side effect of pushing to main. The `dry_run` input defaults to
+# true: the first run previews the next version + notes and publishes NOTHING;
+# re-run with it unchecked to actually ship.
+#
+# PRECONDITION: the NPM_TOKEN repo secret must hold a granular npm token with
+# publish rights (including new-package creation for `doublecheck`).
+# GITHUB_TOKEN is provided by Actions.
+#
+# Auth is pure NPM_TOKEN (matching pggit). We deliberately do NOT enable npm
+# provenance / id-token: write — on npm CLI 11.x, the presence of id-token
+# makes npm PREFER OIDC trusted publishing, which 404s on a package that has
+# no trusted-publisher configured (npm/cli#8976) instead of falling back to
+# the token. If provenance is wanted later, configure a trusted publisher on
+# npmjs.com (the proper OIDC path) rather than re-adding id-token here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — compute the next version + notes, publish nothing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release (semantic-release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # @semantic-release/github creates the Release + tag
+      issues: write # comments on released issues
+      pull-requests: write # comments on released PRs
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # semantic-release walks the full history + tags to derive the version.
+          fetch-depth: 0
+      - uses: jdx/mise-action@v4 # node 24, per mise.toml
+      - name: Enable pnpm
+        # corepack-managed pnpm pinned by package.json `packageManager`.
+        run: corepack enable pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify formatting
+        run: pnpm run check
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Unit tests
+        # Integration tests boot real microsandbox guests — not available in CI.
+        run: pnpm run test:unit
+      - name: Build
+        # tsdown -> dist/cli.mjs; the published tarball is `files`.
+        run: pnpm run build
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx semantic-release ${{ inputs.dry_run && '--dry-run' || '' }}

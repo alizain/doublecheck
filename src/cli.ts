@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { homedir } from "node:os"
 import { join, resolve } from "node:path"
 import { Command } from "commander"

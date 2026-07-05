@@ -33,14 +33,20 @@ missing token / checks / image abort loudly up front.
 ## Setup
 
 ```bash
-pnpm install
-./scripts/build-guest-image.sh   # needs a running Docker daemon; rebuild to pick up a newer claude CLI
+npm install -g doublecheck   # or, from a clone: pnpm install
+```
+
+Guests boot from a locally built image. Build it once from a clone of this
+repo (needs a running Docker daemon; rebuild to pick up a newer claude CLI):
+
+```bash
+./scripts/build-guest-image.sh
 ```
 
 ## Usage
 
 ```bash
-CLAUDE_CODE_OAUTH_TOKEN=... pnpm doublecheck check \
+CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check \
   --project DIR      # default: cwd
   --model MODEL      # default: haiku
   --parallel N       # default: 4 concurrent guests
@@ -62,7 +68,7 @@ the source hash so re-runs only mine new or grown sessions. Mining guests get
 egress to `*.anthropic.com` only. Design: `docs/2026-07-05-mine-design.md`.
 
 ```bash
-CLAUDE_CODE_OAUTH_TOKEN=... pnpm doublecheck mine \
+CLAUDE_CODE_OAUTH_TOKEN=... doublecheck mine \
   --projects DIR     # default: ~/.claude/projects
   --catalog DIR      # default: ~/.doublecheck/catalog
   --model MODEL      # default: opus (a bad-model mine pollutes a durable asset)
@@ -77,15 +83,24 @@ two legitimate defaults that must not be flagged) for exercising the tool
 end-to-end:
 
 ```bash
-CLAUDE_CODE_OAUTH_TOKEN=... pnpm doublecheck check --project fixtures/planted --model haiku
+CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check --project fixtures/planted --model haiku
 ```
 
 ## Development
 
 ```bash
+pnpm doublecheck # run the CLI from source (tsx)
 pnpm test        # vitest — pure logic, plus real-guest integration tests with a FAKE agent (never real claude)
 pnpm typecheck   # tsc --noEmit
 pnpm check       # biome
 ```
 
 Design record: `docs/2026-07-05-doublecheck-design.md`.
+
+## Releasing
+
+Manual, via the `release` GitHub Actions workflow (semantic-release over
+Conventional Commits — a `feat:`/`fix:` commit is what makes the next run
+release). Dispatch it with `dry_run` checked to preview the version + notes,
+then re-run unchecked to publish to npm and cut the GitHub Release. Needs the
+`NPM_TOKEN` repo secret.
