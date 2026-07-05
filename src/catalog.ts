@@ -52,31 +52,50 @@ export type UnitStatus =
 	// transcript has an unparseable line; reported visibly, never mined
 	| { kind: "unreadable"; error: string }
 
-export function unitStatus(unit: Unit, catalogDir: string, minTurns: number): UnitStatus {
-	const jsonl = readFileSync(unit.jsonlPath)
-	const sourceSha256 = createHash("sha256").update(jsonl).digest("hex")
-	const obsPath = observationsPath(catalogDir, unit)
-	const recorded = existsSync(obsPath)
-		? readSourceSha256(readFileSync(obsPath, "utf-8"))
-		: null
-	if (recorded === sourceSha256) return { kind: "mined" }
+// Pure decision core: everything already read, nothing left but judgment.
+export function decideUnitStatus(input: {
+	unit: Unit
+	jsonl: Buffer
+	recordedSha256: string | null
+	minTurns: number
+}): UnitStatus {
+	const sourceSha256 = createHash("sha256").update(input.jsonl).digest("hex")
+	if (input.recordedSha256 === sourceSha256) return { kind: "mined" }
 	let turns: string[]
 	try {
-		turns = humanTurns(jsonl.toString("utf-8"))
+		turns = humanTurns(input.jsonl.toString("utf-8"))
 	} catch (e) {
 		return { kind: "unreadable", error: String(e) }
 	}
-	if (turns.length < minTurns) return { kind: "below-threshold", turns: turns.length }
+	if (turns.length < input.minTurns)
+		return { kind: "below-threshold", turns: turns.length }
 	return {
 		kind: "pending",
-		reason: recorded === null ? "new" : "changed",
+		reason: input.recordedSha256 === null ? "new" : "changed",
 		turns: turns.length,
 		digest: renderDigest(
-			{ source: unit.jsonlPath, project: unit.project, session: unit.session },
+			{
+				source: input.unit.jsonlPath,
+				project: input.unit.project,
+				session: input.unit.session,
+			},
 			turns,
 		),
 		sourceSha256,
 	}
+}
+
+// Shell: read the unit's inputs, then decide purely.
+export function unitStatus(unit: Unit, catalogDir: string, minTurns: number): UnitStatus {
+	const obsPath = observationsPath(catalogDir, unit)
+	return decideUnitStatus({
+		unit,
+		jsonl: readFileSync(unit.jsonlPath),
+		recordedSha256: existsSync(obsPath)
+			? readSourceSha256(readFileSync(obsPath, "utf-8"))
+			: null,
+		minTurns,
+	})
 }
 
 export interface ObservationsMeta {

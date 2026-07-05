@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import PQueue from "p-queue"
-import { claudeAgent, describeStreamLine } from "./claude.ts"
+import { claudeAgent, progressSink } from "./claude.ts"
 import { composePrompt, PROMPT_FILE, REPORT_FILE } from "./contract.ts"
 import { runAgent } from "./runner.ts"
 
@@ -14,8 +14,23 @@ export interface Check {
 	body: string
 }
 
-// `only` (from repeated --check flags) filters; naming a check that doesn't
-// exist is an error, not an empty run.
+// Pure selection: `only` (from repeated --check flags) filters, in the order
+// named; naming a check that doesn't exist is an error, not an empty run.
+export function selectChecks(all: Check[], only: string[], dir: string): Check[] {
+	if (all.length === 0) throw new Error(`no checks (*.md) in ${dir}`)
+	if (only.length === 0) return all
+	const byName = new Map(all.map((c) => [c.name, c]))
+	return only.map((name) => {
+		const check = byName.get(name)
+		if (!check) {
+			const have = all.map((c) => c.name).join(", ")
+			throw new Error(`no check named "${name}" in ${dir} (have: ${have})`)
+		}
+		return check
+	})
+}
+
+// Shell: read every check file, then select purely.
 export function discoverChecks(project: string, only: string[]): Check[] {
 	const dir = join(project, ".agents", "checks")
 	let entries: string[]
@@ -31,17 +46,7 @@ export function discoverChecks(project: string, only: string[]): Check[] {
 			name: f.slice(0, -".md".length),
 			body: readFileSync(join(dir, f), "utf-8"),
 		}))
-	if (all.length === 0) throw new Error(`no checks (*.md) in ${dir}`)
-	if (only.length === 0) return all
-	const byName = new Map(all.map((c) => [c.name, c]))
-	return only.map((name) => {
-		const check = byName.get(name)
-		if (!check) {
-			const have = all.map((c) => c.name).join(", ")
-			throw new Error(`no check named "${name}" in ${dir} (have: ${have})`)
-		}
-		return check
-	})
+	return selectChecks(all, only, dir)
 }
 
 export interface CheckWorkflowOpts {
@@ -82,14 +87,7 @@ async function runOneCheck(
 		workdir,
 		spec,
 		network: "all",
-		onLine: (kind, line) => {
-			if (kind === "stderr") {
-				process.stderr.write(`[${check.name}] ! ${line}\n`)
-				return
-			}
-			const described = describeStreamLine(line)
-			if (described) process.stderr.write(`[${check.name}] ${described}\n`)
-		},
+		onLine: progressSink(check.name),
 	})
 	const reportPath = join(outDir, `${check.name}.md`)
 	if (outcome.ok) {

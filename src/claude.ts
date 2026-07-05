@@ -51,7 +51,7 @@ export function claudeAgent(opts: {
 interface StreamLine {
 	type?: string
 	subtype?: string
-	message?: { content?: Array<{ text?: string }> }
+	message?: { content?: Array<{ type?: string; text?: string; name?: string }> }
 	duration_ms?: number
 }
 
@@ -69,9 +69,30 @@ export function describeStreamLine(line: string): string | null {
 	if (label === "system:thinking_tokens") return null
 	let detail = ""
 	if (obj.type === "assistant") {
-		detail = ` ${obj.message?.content?.[0]?.text?.length ?? 0} chars`
+		const content = obj.message?.content ?? []
+		const tools = content
+			.filter((b) => b.type === "tool_use" && b.name)
+			.map((b) => b.name)
+		const chars = content.reduce((n, b) => n + (b.text?.length ?? 0), 0)
+		detail = tools.length ? ` ${tools.join(",")}` : ` ${chars} chars`
 	} else if (obj.type === "result") {
 		detail = ` ${obj.subtype}, ${((obj.duration_ms ?? 0) / 1000).toFixed(1)}s`
 	}
 	return `[${label}]${detail}`
+}
+
+// The per-unit progress sink both workflow shells hang on runAgent: guest
+// stderr passes through as `[label] ! line`, stdout is claude's stream-json,
+// labelled by describeStreamLine (non-JSON and heartbeat lines dropped).
+export function progressSink(
+	label: string,
+): (kind: "stdout" | "stderr", line: string) => void {
+	return (kind, line) => {
+		if (kind === "stderr") {
+			process.stderr.write(`[${label}] ! ${line}\n`)
+			return
+		}
+		const described = describeStreamLine(line)
+		if (described) process.stderr.write(`[${label}] ${described}\n`)
+	}
 }

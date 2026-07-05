@@ -41,6 +41,40 @@ export type AgentOutcome =
 	| { ok: true; report: string }
 	| { ok: false; reason: string; partialReport: string | null }
 
+// Pure line buffering: fold a chunk into the carry, emit complete non-blank
+// lines, keep the unterminated tail.
+export function feedLines(
+	carry: string,
+	chunk: string,
+): { lines: string[]; carry: string } {
+	const parts = (carry + chunk).split("\n")
+	const rest = parts.pop() ?? ""
+	return { lines: parts.filter((l) => l.trim()), carry: rest }
+}
+
+// Pure outcome decision: what the exec left behind → what it means.
+export function decideOutcome(
+	exitCode: number | null,
+	report: string | null,
+	workdir: string,
+): AgentOutcome {
+	if (exitCode !== 0) {
+		return {
+			ok: false,
+			reason: `agent process exited ${exitCode}`,
+			partialReport: report,
+		}
+	}
+	if (report === null) {
+		return {
+			ok: false,
+			reason: `agent exited 0 but wrote no ${REPORT_FILE} (work dir: ${workdir})`,
+			partialReport: null,
+		}
+	}
+	return { ok: true, report }
+}
+
 export interface RunAgentOpts {
 	// Host dir the agent inspects, bind-mounted READ-ONLY at its real host
 	// path: the project for `check`, the transcripts corpus for `mine`.
@@ -106,41 +140,24 @@ export async function runAgent(opts: RunAgentOpts): Promise<AgentOutcome> {
 			e.args(["-c", opts.spec.command]),
 		)
 
-		const buf: Record<"stdout" | "stderr", string> = { stdout: "", stderr: "" }
-		const emit = (kind: "stdout" | "stderr", data: Uint8Array) => {
-			buf[kind] += Buffer.from(data).toString()
-			const lines = buf[kind].split("\n")
-			buf[kind] = lines.pop() ?? ""
-			for (const line of lines) if (line.trim()) opts.onLine(kind, line)
-		}
+		const carry: Record<"stdout" | "stderr", string> = { stdout: "", stderr: "" }
 		let exitCode: number | null = null
 		for (;;) {
 			const ev: ExecEvent | null = await handle.recv()
 			if (ev === null) break
-			if (ev.kind === "stdout" || ev.kind === "stderr") emit(ev.kind, ev.data)
-			else if (ev.kind === "exited") exitCode = ev.code
+			if (ev.kind === "stdout" || ev.kind === "stderr") {
+				const fed = feedLines(carry[ev.kind], Buffer.from(ev.data).toString())
+				carry[ev.kind] = fed.carry
+				for (const line of fed.lines) opts.onLine(ev.kind, line)
+			} else if (ev.kind === "exited") exitCode = ev.code
 		}
 		for (const kind of ["stdout", "stderr"] as const) {
-			if (buf[kind].trim()) opts.onLine(kind, buf[kind])
+			if (carry[kind].trim()) opts.onLine(kind, carry[kind])
 		}
 
 		const reportPath = join(opts.workdir, REPORT_FILE)
 		const report = existsSync(reportPath) ? readFileSync(reportPath, "utf-8") : null
-		if (exitCode !== 0) {
-			return {
-				ok: false,
-				reason: `agent process exited ${exitCode}`,
-				partialReport: report,
-			}
-		}
-		if (report === null) {
-			return {
-				ok: false,
-				reason: `agent exited 0 but wrote no ${REPORT_FILE} (work dir: ${opts.workdir})`,
-				partialReport: null,
-			}
-		}
-		return { ok: true, report }
+		return decideOutcome(exitCode, report, opts.workdir)
 	} finally {
 		if (sandbox) {
 			try {

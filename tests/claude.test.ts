@@ -45,6 +45,19 @@ describe("describeStreamLine", () => {
 		expect(describeStreamLine(line)).toBe("[assistant] 5 chars")
 	})
 
+	it("labels tool-use assistant turns with the tool names", () => {
+		const line = JSON.stringify({
+			type: "assistant",
+			message: {
+				content: [
+					{ type: "tool_use", name: "Bash", id: "x", input: {} },
+					{ type: "tool_use", name: "Read", id: "y", input: {} },
+				],
+			},
+		})
+		expect(describeStreamLine(line)).toBe("[assistant] Bash,Read")
+	})
+
 	it("labels result lines with subtype and duration", () => {
 		const line = JSON.stringify({
 			type: "result",

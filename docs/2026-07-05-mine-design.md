@@ -53,7 +53,7 @@ human_turns: 14
 ## <kebab-case-name>
 - **observation:** <one sentence: the durable preference>
 - **kind:** code | workflow | style
-- **evidence:** "<verbatim quote>" — <project>::<session>::turn <N>
+- **evidence:** "<verbatim quote>" — turn <N>
 ```
 
 - **The host writes the frontmatter** (it knows hash, model, time); the agent
