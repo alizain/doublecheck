@@ -55,21 +55,28 @@ describe("runAgent against a real guest", () => {
 	)
 
 	it(
-		'network "none" actually blocks egress',
+		'network "anthropic-only" blocks the world but resolves anthropic.com',
 		async () => {
 			const workdir = scratchWithPrompt()
 			const outcome = await runAgent({
 				mount: PROJECT,
 				workdir,
-				network: "none",
-				// curl must FAIL; the report records what happened either way, so
-				// the assertion reads the guest's own account of it.
+				network: "anthropic-only",
+				// The report records the guest's own account: example.com must be
+				// unreachable while api.anthropic.com answers (any HTTP status —
+				// reachability is the property, not authorization).
 				spec: fakeAgent(
-					"if curl -sS --max-time 5 https://example.com -o /dev/null 2>/dev/null; then echo reached > report.md; else echo blocked > report.md; fi",
+					[
+						"curl -sS --max-time 5 https://example.com -o /dev/null 2>/dev/null && echo world-reached > report.md || echo world-blocked > report.md",
+						"curl -sS --max-time 15 https://api.anthropic.com -o /dev/null 2>/dev/null && echo anthropic-reached >> report.md || echo anthropic-blocked >> report.md",
+					].join("; "),
 				),
 				onLine: () => {},
 			})
-			expect(outcome).toEqual({ ok: true, report: "blocked\n" })
+			expect(outcome).toEqual({
+				ok: true,
+				report: "world-blocked\nanthropic-reached\n",
+			})
 		},
 		TIMEOUT,
 	)

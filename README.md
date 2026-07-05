@@ -51,6 +51,27 @@ CLAUDE_CODE_OAUTH_TOKEN=... pnpm doublecheck check \
 The token is required and injected into each guest; where it comes from is
 the operator's business.
 
+### Mining your Claude history into an observation catalog
+
+`doublecheck mine` walks every Claude Code transcript on the machine and runs
+one sandboxed agent per real conversation (≥ `--min-turns` genuine human
+turns) to extract durable engineering preferences into
+`~/.doublecheck/catalog`, mirroring the transcript tree — one
+`<project>/<session>/observations.md` per conversation, frontmatter recording
+the source hash so re-runs only mine new or grown sessions. Mining guests get
+egress to `*.anthropic.com` only. Design: `docs/2026-07-05-mine-design.md`.
+
+```bash
+CLAUDE_CODE_OAUTH_TOKEN=... pnpm doublecheck mine \
+  --projects DIR     # default: ~/.claude/projects
+  --catalog DIR      # default: ~/.doublecheck/catalog
+  --model MODEL      # default: opus (a bad-model mine pollutes a durable asset)
+  --parallel N       # default: 4
+  --min-turns N      # default: 2
+  --limit N          # mine at most N pending conversations
+  --dry-run          # list what would be mined, boot nothing
+```
+
 `fixtures/planted/` is a tiny target with two planted silent fallbacks (and
 two legitimate defaults that must not be flagged) for exercising the tool
 end-to-end:

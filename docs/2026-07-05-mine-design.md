@@ -93,10 +93,13 @@ Failure records don't belong in a durable append-only asset.
   transcript whole) + the same hardened report contract as `check`
   ("report.md is the only output that counts").
 - **Sandbox per unit:** transcripts dir mounted **read-only** (the miner
-  greps sources), scratch rw as cwd, claude adapter unchanged. **Network
-  disabled** (`disableNetwork()`): the whole personal corpus is mounted and
-  mining needs no internet — that combination must not exist. The runner
-  grows one option (`network: "all" | "none"`); `check` keeps allowAll.
+  greps sources), scratch rw as cwd, claude adapter unchanged. **Egress
+  restricted to `*.anthropic.com`** (defaultDeny policy): the whole personal
+  corpus is mounted, so the only reachable destination is the API the agent
+  already sends its context to. (Fully disabled networking is not an option —
+  it kills DNS and the adapter can't reach its own model API; measured
+  2026-07-05.) The runner grows one option
+  (`network: "all" | "anthropic-only"`); `check` keeps allowAll.
 - p-queue caps concurrent guests, exactly as `check`.
 
 ## Prior catalog

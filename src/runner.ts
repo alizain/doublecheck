@@ -49,10 +49,12 @@ export interface RunAgentOpts {
 	// cwd at its identical host path, so the agent's report lands back on the host.
 	workdir: string
 	spec: AgentSpec
-	// "all" for checks (inspectors may research); "none" for miners (the
-	// personal corpus is mounted — that data and an open network must not
-	// coexist in one guest).
-	network: "all" | "none"
+	// "all" for checks (inspectors may research); "anthropic-only" for miners:
+	// the personal corpus is mounted, so the only reachable destination is the
+	// API the agent already sends its context to. NetworkPolicy.none() is not
+	// an option here — it kills DNS entirely and the adapter can't reach its
+	// own model API (measured: claude retries ~180s then exits 1).
+	network: "all" | "anthropic-only"
 	onLine: (kind: "stdout" | "stderr", line: string) => void
 }
 
@@ -66,7 +68,10 @@ export async function runAgent(opts: RunAgentOpts): Promise<AgentOutcome> {
 	const policy =
 		opts.network === "all"
 			? microsandbox.NetworkPolicy.allowAll()
-			: microsandbox.NetworkPolicy.none()
+			: microsandbox.NetworkPolicy.builder()
+					.defaultDeny()
+					.egress((rb) => rb.allow((d) => d.domainSuffix("anthropic.com")))
+					.build()
 	let sandbox: InstanceType<typeof microsandbox.Sandbox> | null = null
 	try {
 		try {
