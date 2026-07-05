@@ -113,29 +113,29 @@ end-to-end:
 CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check --project fixtures/planted --model haiku
 ```
 
-## Authoring a check
+## What the inspector sees
 
-Write the body as instructions to a competent inspector who has your whole
-repo read-only and knows nothing about your intent beyond what you write.
-What makes a check work:
+The facts of the agent's world, so you can decide how to author checks:
 
-- **State the scope in prose.** "Inspect files changed vs main", "the whole
-  tree", "only `src/`" — the inspector has git and ripgrep and computes its
-  own diffs; the harness will not do it.
-- **Teach discrimination, not detection.** The failure mode of LLM inspectors
-  is flagging everything that pattern-matches. Spell out what must NOT be
-  flagged with the same care as what must. `.agents/checks/no-silent-fallbacks.md`
-  is the exemplar: `title ?? "Untitled"` (designed default) passes,
-  `config.url ?? "http://localhost:3000"` (bug-hiding default) fails.
-- **Ask for confidence-ranked findings with file:line evidence** so the report
-  reads top-down: the first finding should be the one most worth a human's
-  minute.
-- **Calibrate against a planted fixture** before trusting a check — a tiny
-  target with defects it must flag *and* look-alikes it must not
-  (`fixtures/planted/` is the pattern).
-
-Model choice matters: `check` defaults to haiku (cheap, fine for
-well-discriminated checks); judgment-heavy checks may need `--model opus`.
+- **The agent** is one headless `claude -p` per check (model from `--model`,
+  default haiku), running inside its own microVM with
+  `--dangerously-skip-permissions` — no permission gates; the VM is the
+  boundary. Its toolkit: Task (it can spawn subagents), Bash, Read, Write,
+  Edit, Glob, Grep, WebSearch, WebFetch. Check agents have unrestricted
+  internet egress.
+- **Its only input is the prompt**: a short environment preamble (verbatim in
+  `src/contract.ts`) + the check body + the report contract. No session, no
+  conversation history, no other context — everything the inspector knows
+  about your standards is what the check body says.
+- **The filesystem**: the project is bind-mounted read-only at its real host
+  path — the live working tree, dirty files and `.git` included, so `git
+  log`/`git diff`/`git blame` and `rg` work against the real repo; writes to
+  it fail. The guest image also has node 24, curl, and wget. The cwd is a
+  writable scratch dir private to the check; nothing in it survives except
+  `report.md`.
+- **The output**: the prompt tells the agent its chat reply is discarded and
+  only `./report.md` is read back. The harness imposes no structure on the
+  report — it contains whatever the check body asks for.
 
 ```bash
 pnpm doublecheck # run the CLI from source (tsx)
