@@ -1,0 +1,15 @@
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@superradcompany/microsandbox-darwin-arm64'
+  - '@superradcompany/microsandbox-linux-arm64-gnu'
+  - '@superradcompany/microsandbox-linux-x64-gnu'
+  - '@superradcompany/microsandbox-win32-arm64-msvc'
+  - '@superradcompany/microsandbox-win32-x64-msvc'
+  - microsandbox
+# esbuild (pulled in by tsx/vitest) ships its native binary via optional deps and
+# a build script; allow the build and skip pnpm's pre-run deps verification so
+# `pnpm test` / `pnpm typecheck` don't abort on the "ignored build" bookkeeping.
+onlyBuiltDependencies:
+  - esbuild
+verifyDepsBeforeRun: false

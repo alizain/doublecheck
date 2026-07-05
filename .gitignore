@@ -1,0 +1,25 @@
+# dependencies
+node_modules
+
+# output
+dist
+*.tgz
+
+# doublecheck run reports (when run against this repo itself)
+.doublecheck
+
+# logs
+logs
+*.log
+
+# code coverage
+coverage
+*.lcov
+
+# caches
+.cache
+*.tsbuildinfo
+
+# editors / OS
+.idea
+.DS_Store

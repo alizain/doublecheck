@@ -1,0 +1,2 @@
+# Dockerfile.guest COPYs nothing — keep the build context empty.
+*

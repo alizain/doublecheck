@@ -1,0 +1,17 @@
+# The check-inspector guest image. Built locally and side-loaded into the
+# microsandbox cache — never pushed to a registry:
+#
+#   ./scripts/build-guest-image.sh
+#
+# Baking the claude CLI here (instead of `npm i -g` at every guest boot) pins
+# its version and cuts ~30s off each check run. Rebuild to pick up a newer CLI.
+# git is for check-authored scoping ("run `git diff main`" lives in check
+# prose); ripgrep because inspectors grep; curl/wget because checks may fetch
+# from the internet (node:*-slim ships none of these).
+FROM node:24-bookworm-slim
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends git ripgrep curl wget \
+	&& rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g @anthropic-ai/claude-code
