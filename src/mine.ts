@@ -76,7 +76,7 @@ async function mineOneUnit(
 ): Promise<boolean> {
 	const tag = unit.session.slice(0, 8)
 	const workdir = mkdtempSync(join(tmpdir(), `doublecheck-mine-${tag}-`))
-	writeFileSync(join(workdir, PROMPT_FILE), composeMinePrompt(status.digest))
+	writeFileSync(join(workdir, PROMPT_FILE), composeMinePrompt(status.digest, workdir))
 	const spec = claudeAgent({ token, model: opts.model, workdir })
 	process.stderr.write(
 		`[${tag}] mining ${unit.project}/${unit.session} (${status.turns} turns, ${status.reason})\n`,

@@ -14,32 +14,50 @@ function parsePositiveInt(flag: string) {
 	}
 }
 
+const collect = (v: string, prev: string[]): string[] => [...prev, v]
+
 const program = new Command()
 	.name("doublecheck")
 	.description(
-		"Run self-authored LLM code-inspectors (.agents/checks/*.md) against a project, one sandboxed agent per check",
+		"Run self-authored LLM code-inspectors (checks) against a target tree, one sandboxed agent per check",
 	)
 
 program
 	.command("check")
-	.option("--project <dir>", "project to inspect", process.cwd())
-	.option("--model <model>", "model for the inspector agents", "haiku")
-	.option("--parallel <n>", "max concurrent checks", parsePositiveInt("--parallel"), 4)
-	.option("--output <dir>", "reports root (default: $PROJECT/.doublecheck)")
+	.option("--target <dir>", "tree under inspection, mounted read-only", process.cwd())
 	.option(
-		"--check <name>",
-		"run only this check (repeatable)",
-		(v: string, prev: string[]) => [...prev, v],
+		"--checks-dir <dir>",
+		"checks directory (repeatable; default: $TARGET/.agents/checks)",
+		collect,
 		[] as string[],
 	)
+	.option(
+		"--context <file>",
+		"run-context file spliced into every inspector's prompt (intent, nuances, sanctioned exceptions, scope)",
+	)
+	.option("--model <model>", "model for the inspector agents", "haiku")
+	.option("--parallel <n>", "max concurrent checks", parsePositiveInt("--parallel"), 4)
+	.option("--output <dir>", "reports root (default: $TARGET/.doublecheck)")
+	.option("--check <name>", "run only this check (repeatable)", collect, [] as string[])
+	.option(
+		"--save-jsonl",
+		"persist each inspector's raw stream-json beside its report (audit trail)",
+	)
 	.action(async (opts) => {
-		const project = resolve(opts.project)
+		const target = resolve(opts.target)
+		const checksDirs: string[] =
+			opts.checksDir.length > 0
+				? opts.checksDir.map((d: string) => resolve(d))
+				: [join(target, ".agents", "checks")]
 		const ok = await runChecks({
-			project,
+			target,
+			checksDirs,
+			contextFile: opts.context ? resolve(opts.context) : null,
 			model: opts.model,
 			parallel: opts.parallel,
-			output: opts.output ? resolve(opts.output) : join(project, ".doublecheck"),
+			output: opts.output ? resolve(opts.output) : join(target, ".doublecheck"),
 			only: opts.check,
+			saveJsonl: !!opts.saveJsonl,
 		})
 		if (!ok) process.exitCode = 1
 	})

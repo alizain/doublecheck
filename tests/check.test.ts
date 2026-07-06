@@ -4,47 +4,63 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { discoverChecks, failureReport, runTimestamp } from "../src/check.ts"
 
-function projectWithChecks(files: Record<string, string>): string {
-	const project = mkdtempSync(join(tmpdir(), "doublecheck-test-"))
-	const dir = join(project, ".agents", "checks")
+function checksDir(files: Record<string, string>): string {
+	const dir = join(mkdtempSync(join(tmpdir(), "doublecheck-test-")), "checks")
 	mkdirSync(dir, { recursive: true })
 	for (const [name, body] of Object.entries(files)) {
 		writeFileSync(join(dir, name), body)
 	}
-	return project
+	return dir
 }
 
 describe("discoverChecks", () => {
 	it("finds every .md, sorted, name = filename minus .md", () => {
-		const project = projectWithChecks({
+		const dir = checksDir({
 			"beta.md": "check beta",
 			"alpha.md": "check alpha",
 			"notes.txt": "not a check",
 		})
-		expect(discoverChecks(project, [])).toEqual([
+		expect(discoverChecks([dir], [])).toEqual([
 			{ name: "alpha", body: "check alpha" },
 			{ name: "beta", body: "check beta" },
 		])
 	})
 
+	it("unions checks across dirs, sorted by name", () => {
+		const shared = checksDir({ "zeta.md": "Z" })
+		const repo = checksDir({ "alpha.md": "A" })
+		expect(discoverChecks([shared, repo], []).map((c) => c.name)).toEqual([
+			"alpha",
+			"zeta",
+		])
+	})
+
+	it("throws when the same check name exists in two dirs — no precedence", () => {
+		const a = checksDir({ "dup.md": "one" })
+		const b = checksDir({ "dup.md": "two" })
+		expect(() => discoverChecks([a, b], [])).toThrow(
+			/"dup" exists in both .* — rename one/,
+		)
+	})
+
 	it("filters to the named checks, in the order named", () => {
-		const project = projectWithChecks({ "a.md": "A", "b.md": "B", "c.md": "C" })
-		expect(discoverChecks(project, ["c", "a"]).map((c) => c.name)).toEqual(["c", "a"])
+		const dir = checksDir({ "a.md": "A", "b.md": "B", "c.md": "C" })
+		expect(discoverChecks([dir], ["c", "a"]).map((c) => c.name)).toEqual(["c", "a"])
 	})
 
 	it("throws on a name that doesn't exist", () => {
-		const project = projectWithChecks({ "a.md": "A" })
-		expect(() => discoverChecks(project, ["nope"])).toThrow(/no check named "nope"/)
+		const dir = checksDir({ "a.md": "A" })
+		expect(() => discoverChecks([dir], ["nope"])).toThrow(/no check named "nope"/)
 	})
 
-	it("throws when the checks dir is missing", () => {
-		const project = mkdtempSync(join(tmpdir(), "doublecheck-test-"))
-		expect(() => discoverChecks(project, [])).toThrow(/no checks directory/)
+	it("throws when a checks dir is missing", () => {
+		const missing = join(mkdtempSync(join(tmpdir(), "doublecheck-test-")), "absent")
+		expect(() => discoverChecks([missing], [])).toThrow(/no checks directory/)
 	})
 
-	it("throws when the checks dir has no .md files", () => {
-		const project = projectWithChecks({ "readme.txt": "hi" })
-		expect(() => discoverChecks(project, [])).toThrow(/no checks \(\*\.md\)/)
+	it("throws when the union has no .md files", () => {
+		const dir = checksDir({ "readme.txt": "hi" })
+		expect(() => discoverChecks([dir], [])).toThrow(/no checks \(\*\.md\)/)
 	})
 })
 

@@ -77,7 +77,7 @@ export function decideOutcome(
 
 export interface RunAgentOpts {
 	// Host dir the agent inspects, bind-mounted READ-ONLY at its real host
-	// path: the project for `check`, the transcripts corpus for `mine`.
+	// path: the target for `check`, the transcripts corpus for `mine`.
 	mount: string
 	// Scratch dir with PROMPT_FILE already inside; bind-mounted rw as the guest
 	// cwd at its identical host path, so the agent's report lands back on the host.

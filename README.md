@@ -4,11 +4,15 @@ Runs self-authored LLM code-inspectors ("checks") against a project — one
 sandboxed agent per check, in parallel — and writes one markdown report per
 check.
 
-**A check is a markdown file:** `$PROJECT/.agents/checks/<name>.md`. No
-frontmatter, no schema — the body is the inspector's instructions, and scoping
-(whole tree, `git diff main`, one package) is the check's own prose; the
+**A check is a markdown file:** a timeless standard — no frontmatter, no
+schema; the body is the inspector's instructions. Checks come from one or
+more `--checks-dir` directories (default: `$TARGET/.agents/checks`), so a
+shared check set can serve a whole folder of repos. Everything run-specific —
+the intent of the work under review, known nuances, sanctioned exceptions,
+scope ("these changed files vs main") — arrives per run via `--context`; the
 harness computes no diffs and knows nothing about git. **A report is a
-markdown file:** whatever the agent writes, no imposed structure.
+markdown file:** whatever the agent writes, no imposed structure — and the
+operator's agent reads every line of it, which the prompt tells the inspector.
 
 ## Why this exists
 
@@ -39,15 +43,17 @@ never needs to change when your standards do.
 
 ## How it works
 
-Per check: a scratch workdir gets `prompt.txt` (environment preamble + check
-body + report contract). A [microsandbox](https://github.com/superradcompany/microsandbox)
+Per check: a scratch workdir gets `prompt.txt` (environment preamble +
+operator run context, when given + check body + report contract). A [microsandbox](https://github.com/superradcompany/microsandbox)
 microVM boots from a locally built image with the project bind-mounted
 **read-only at its real host path** and the scratch dir mounted rw as the
 guest cwd. `claude -p` runs inside with the full inspector toolkit (Task,
 Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch) and no permission
 gates — the microVM is the safety boundary, the ro mount is the "don't touch
 my repo" guarantee. The agent writes `report.md`; the host copies it to
-`$OUTPUT/<run-timestamp>/<check>.md`.
+`$OUTPUT/<run-timestamp>/<check>.md` (with `--save-jsonl`, alongside
+`<check>.stream.jsonl` — the inspector's raw stream, kept so a run can be
+audited after the guest is gone).
 
 The project is never copied — every guest shares the live host directory
 (dirty files included) through the ro mount, so per-check cost is one temp dir
@@ -74,11 +80,14 @@ repo (needs a running Docker daemon; rebuild to pick up a newer claude CLI):
 
 ```bash
 CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check \
-  --project DIR      # default: cwd
+  --target DIR       # tree under inspection, mounted read-only; default: cwd
+  --checks-dir DIR   # repeatable; default: $TARGET/.agents/checks
+  --context FILE     # run brief: intent, nuances, sanctioned exceptions, scope
   --model MODEL      # default: haiku
   --parallel N       # default: 4 concurrent guests
-  --output DIR       # default: $PROJECT/.doublecheck
-  --check NAME       # repeatable; default: every check in .agents/checks/
+  --output DIR       # default: $TARGET/.doublecheck
+  --check NAME       # repeatable; default: every check in the checks dirs
+  --save-jsonl       # persist each inspector's raw stream beside its report
 ```
 
 The token is required and injected into each guest; where it comes from is
@@ -110,7 +119,7 @@ two legitimate defaults that must not be flagged) for exercising the tool
 end-to-end:
 
 ```bash
-CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check --project fixtures/planted --model haiku
+CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check --target fixtures/planted --model haiku
 ```
 
 ## What the inspector sees
@@ -124,9 +133,12 @@ The facts of the agent's world, so you can decide how to author checks:
   Edit, Glob, Grep, WebSearch, WebFetch. Check agents have unrestricted
   internet egress.
 - **Its only input is the prompt**: a short environment preamble (verbatim in
-  `src/contract.ts`) + the check body + the report contract. No session, no
-  conversation history, no other context — everything the inspector knows
-  about your standards is what the check body says.
+  `src/contract.ts`) + the operator's run context, when `--context` was given
+  + the check body + the report contract. No session, no conversation history
+  — the check body is the standard; the run context is everything about this
+  particular run (intent, sanctioned exceptions, scope). The report contract
+  also tells the inspector that every line of its report is read in full,
+  findings must be verified, and "no findings" is a perfectly good report.
 - **The filesystem**: the project is bind-mounted read-only at its real host
   path — the live working tree, dirty files and `.git` included, so `git
   log`/`git diff`/`git blame` and `rg` work against the real repo; writes to
@@ -144,7 +156,7 @@ pnpm typecheck   # tsc --noEmit
 pnpm check       # biome
 ```
 
-Design record: `docs/2026-07-05-doublecheck-design.md`.
+Design records: `docs/2026-07-05-doublecheck-design.md`, `docs/2026-07-05-run-context-and-decomposed-flags-design.md`. For how a driving agent should use this tool — above all, what a good `--context` brief contains — see `SKILL.md`.
 
 ## Releasing
 

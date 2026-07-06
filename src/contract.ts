@@ -10,41 +10,82 @@ export const REPORT_FILE = "report.md"
 
 // Weak models reliably skip a report contract stated once at the prompt's
 // tail unless it leads with the stakes and orders the file created first
-// (measured: haiku went from ~50% to 3/3 with this wording).
-function reportContract(activity: string, deliverable: string): string {
+// (measured: haiku went from ~50% to 3/3 with this wording). Two hard-won
+// additions (2026-07-05, all three cutover inspectors lost their reports):
+// the path is ABSOLUTE — agents cd into the inspected tree to run git, and a
+// relative ./report.md then lands in the read-only mount — and the
+// create-first order is repeated near the top of the prompt (see
+// firstActionLine), because on long prompts the tail alone loses its grip.
+function reportContract(activity: string, deliverable: string, workdir: string): string {
 	return `## Report — the only output that counts
 
-Your final chat reply is discarded. The only thing read back is the file \`./${REPORT_FILE}\` in your working directory — if it does not exist when you exit, this run FAILS.
+Your final chat reply is discarded. The only thing read back is the file \`${workdir}/${REPORT_FILE}\` — if it does not exist when you exit, this run FAILS. Always use that absolute path: if you \`cd\` elsewhere (into the inspected tree, say), a relative \`./${REPORT_FILE}\` lands in the wrong place, or in a read-only mount where the write fails.
 
-So: create \`./${REPORT_FILE}\` with the Write tool BEFORE you start ${activity} (a title line is enough), and update it as you work. The final state of the file when you finish is ${deliverable}.`
+So: create \`${workdir}/${REPORT_FILE}\` with the Write tool BEFORE you start ${activity} (a title line is enough), and update it as you work. The final state of the file when you finish is ${deliverable}.`
 }
 
-// Environment preamble + check body + report contract. Scoping (diff vs tree)
-// is the check's own prose — the harness knows nothing about git.
-export function composePrompt(checkBody: string, project: string): string {
+function firstActionLine(workdir: string): string {
+	return `Your FIRST action, before anything else: create \`${workdir}/${REPORT_FILE}\` with the Write tool (a title line is enough). The full report contract is at the end of this prompt.`
+}
+
+// Environment preamble + optional run context + check body + report
+// contract. Checks are timeless standards; everything run-specific (intent,
+// sanctioned exceptions, scope) arrives in the operator's run context — the
+// harness knows nothing about git.
+export function composePrompt(opts: {
+	checkBody: string
+	target: string
+	workdir: string
+	runContext: string | null
+}): string {
+	const contextSection = opts.runContext
+		? `## Run context (from the operator)
+
+The operator's brief for this run: the intent behind the work under review, known nuances, sanctioned exceptions, and possibly a Scope naming exactly what is under review. Judge requestedness against it — what the brief explicitly sanctions is not a finding. If it names a Scope, the Scope defines the change under review: findings must concern that change, and the rest of the tree is reference for judgment — with one exception. For concepts the scoped change retires or renames, surviving references anywhere in the tree are reportable findings: the Scope bounds what counts as the change, not where survivors may hide.
+
+${opts.runContext}
+
+---
+
+`
+		: ""
 	return `## Environment
 
 You are a code inspector running inside a sandboxed microVM with full permissions and unrestricted internet access.
 
-- The project under inspection is mounted read-only at \`${project}\`. You cannot modify it — inspect, don't fix.
+- The code under inspection is mounted read-only at \`${opts.target}\`. You cannot modify it — inspect, don't fix.
 - \`git\` and \`rg\` are installed.
-- Your current working directory is a writable scratch workspace.
+- Your current working directory is a writable scratch workspace: \`${opts.workdir}\`.
+
+${firstActionLine(opts.workdir)}
+
+## Inspection discipline
+
+Measured on real runs: inspectors that skip these rules produce reports whose verdicts are right but whose evidence is partly fabricated — which is worse than no report.
+
+- Before inspecting, enumerate what is under review (the Run context's Scope list if one is given; otherwise your own enumeration of the target) and keep a ledger as you work: **examined** (content actually opened), **name-only**, **not examined**. End your report with that ledger, with a one-line reason for anything not examined.
+- Use verification verbs — "verified", "confirmed", "checked", "read", "diffed", "grepped", "spot-checked" — ONLY for actions you actually performed in this session on content you actually opened. Everything else must be labeled as inference: "assumed identical by generation — not opened."
+- Never truncate output you will base a claim on — no \`| head\` / \`| tail\` on a diff or search you intend to cite. Examine files one at a time instead.
 
 ---
 
-${checkBody}
+${contextSection}${opts.checkBody}
 
 ---
 
-${reportContract("inspecting", "the check's report")}`
+${reportContract("inspecting", "the check's report", opts.workdir)}
+
+Every single line of your report will be read in full by the operator's agent — nothing is skimmed, so every line costs attention. Verify each finding against the actual code before writing it down. A report that says "no findings" is a perfectly good report; an unverified finding is not.`
 }
 
 // The mining prompt: digest of one conversation + what counts as a durable
 // preference observation + the block format the catalog accumulates.
-export function composeMinePrompt(digest: string): string {
+export function composeMinePrompt(digest: string, workdir: string): string {
 	return `## Environment
 
-You are running inside a sandboxed microVM with no network access. The machine's Claude Code transcripts are mounted read-only at their real paths; your current working directory is a writable scratch workspace.
+You are running inside a sandboxed microVM with no network access. The machine's Claude Code transcripts are mounted read-only at their real paths; your current working directory is a writable scratch workspace: \`${workdir}\`.
+
+${firstActionLine(workdir)}
 
 ## Task
 
@@ -88,5 +129,5 @@ If the conversation carries no durable preference signal, the report is exactly 
 No durable preference signal.
 <one sentence: what the conversation was about instead>
 
-${reportContract("mining", "the mined observations")}`
+${reportContract("mining", "the mined observations", workdir)}`
 }
