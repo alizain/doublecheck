@@ -25,7 +25,7 @@ function guestConfig(model: string): string {
 	return `model = "${model}"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
-model_reasoning_effort = "xhigh"
+model_reasoning_effort = "high"
 web_search = "live"
 project_doc_max_bytes = 0
 cli_auth_credentials_store = "file"

@@ -290,6 +290,10 @@ call at invocation time; the README states the data flow plainly.
 
 Refinements over the approved text, made during implementation and review:
 
+- **Reasoning effort default revised to `high`** (operator decision, same
+  day, after live runs): the config block below says `"xhigh"` as approved;
+  what ships is `model_reasoning_effort = "high"`.
+
 - **The model rides in the staged `config.toml` (`model = "…"`), not a
   `-m` flag.** Spiked live before the change: identical behavior. This
   removes the only operator-supplied value that was interpolated into the

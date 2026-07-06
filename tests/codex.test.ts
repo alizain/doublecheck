@@ -27,13 +27,13 @@ describe("codexAgent", () => {
 		expect(auth?.content).toBe('{"tokens":{"refresh_token":"rt-123"}}')
 	})
 
-	it("stages a minimal guest config: model, no plugins/apps fetch, no AGENTS.md, xhigh effort", () => {
+	it("stages a minimal guest config: model, no plugins/apps fetch, no AGENTS.md, high effort", () => {
 		expect(spec.files).toHaveLength(2)
 		const config = spec.files.find((f) => f.path === "/root/.codex/config.toml")
 		expect(config?.content).toContain('model = "gpt-5.5"')
 		expect(config?.content).toContain('approval_policy = "never"')
 		expect(config?.content).toContain('sandbox_mode = "danger-full-access"')
-		expect(config?.content).toContain('model_reasoning_effort = "xhigh"')
+		expect(config?.content).toContain('model_reasoning_effort = "high"')
 		expect(config?.content).toContain('web_search = "live"')
 		expect(config?.content).toContain("project_doc_max_bytes = 0")
 		expect(config?.content).toContain('cli_auth_credentials_store = "file"')

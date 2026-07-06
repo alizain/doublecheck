@@ -49,7 +49,7 @@ const claude: AgentCli = {
 const codex: AgentCli = {
 	name: "codex",
 	// No haiku-style cheap default: plan billing is flat-rate, and the staged
-	// guest config already pins xhigh reasoning effort (operator decision).
+	// guest config already pins high reasoning effort (operator decision).
 	defaultModel: { check: "gpt-5.5", mine: "gpt-5.5" },
 	writeToolPhrase: null,
 	// ChatGPT-plan inference lives at chatgpt.com/backend-api/codex; the

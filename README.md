@@ -165,7 +165,7 @@ The facts of the agent's world, so you can decide how to author checks:
     haiku) with the pinned toolkit Task (it can spawn subagents), Bash,
     Read, Write, Edit, Glob, Grep, WebSearch, WebFetch.
   - `--agent codex`: `codex exec` (default model gpt-5.5, reasoning effort
-    pinned to xhigh in the staged guest config) with codex's own toolset:
+    pinned to high in the staged guest config) with codex's own toolset:
     shell, apply_patch, plan/todo, subagent spawning (multi_agent), and
     server-side web search. The staged config disables codex's ambient
     inputs — no AGENTS.md pickup, no plugin/marketplace fetch — so the
