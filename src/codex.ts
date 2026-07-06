@@ -6,6 +6,8 @@ const GUEST_HOME = "/root"
 // Guest-only codex config — deliberately NOT a copy of any host config.toml
 // (which carries MCP API keys, personality, plugins, a trust table). Each key
 // is load-bearing:
+// - model rides here rather than as a `-m` flag so nothing operator-supplied
+//   is ever interpolated into the guest's bash command string.
 // - approval_policy/sandbox_mode double the bypass flag on the command line;
 //   either alone is a documented trust-prompt suppressor, some builds leak
 //   with only one (openai/codex#14547).
@@ -19,7 +21,9 @@ const GUEST_HOME = "/root"
 //   and apps fetch (verified live): under restricted egress they hang, and
 //   under any egress they inject tools (e.g. a git-push skill) the contract
 //   never sanctioned.
-const GUEST_CONFIG = `approval_policy = "never"
+function guestConfig(model: string): string {
+	return `model = "${model}"
+approval_policy = "never"
 sandbox_mode = "danger-full-access"
 model_reasoning_effort = "xhigh"
 web_search = "live"
@@ -30,6 +34,7 @@ cli_auth_credentials_store = "file"
 plugins = false
 apps = false
 `
+}
 
 // The codex adapter: produce the AgentSpec that runs `codex exec` in the guest.
 export function codexAgent(opts: {
@@ -49,7 +54,7 @@ export function codexAgent(opts: {
 		command:
 			"codex exec --json --skip-git-repo-check " +
 			"--dangerously-bypass-approvals-and-sandbox --ephemeral " +
-			`-m ${opts.model} - < ${PROMPT_FILE}`,
+			`- < ${PROMPT_FILE}`,
 		env: {
 			// CODEX_HOME defaults to $HOME/.codex, where both staged files land.
 			HOME: GUEST_HOME,
@@ -57,7 +62,10 @@ export function codexAgent(opts: {
 		},
 		files: [
 			{ path: `${GUEST_HOME}/.codex/auth.json`, content: opts.authJson },
-			{ path: `${GUEST_HOME}/.codex/config.toml`, content: GUEST_CONFIG },
+			{
+				path: `${GUEST_HOME}/.codex/config.toml`,
+				content: guestConfig(opts.model),
+			},
 		],
 	}
 }

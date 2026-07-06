@@ -50,12 +50,14 @@ CLAUDE_CODE_OAUTH_TOKEN=$(cat <token-file>) doublecheck check \
   --checks-dir <shared-checks-dir> [--checks-dir <repo-checks-dir>] \
   --context <brief-file> \
   --check <name> ... \        # subset while iterating; omit for the full set
-  --model haiku \             # haiku to iterate; raise for real gates
+  --agent claude \            # or codex; picks which agent CLI inspects
+  --model haiku \             # per-agent default: claude haiku, codex gpt-5.5;
+                              # haiku to iterate; raise for real gates
   --output <reports-root>     # default $TARGET/.doublecheck — point elsewhere
                               # if you shouldn't write into the target repo
 ```
 
-- Source the token by command substitution as above — never print it, never echo it into a transcript.
+- Source the token by command substitution as above — never print it, never echo it into a transcript. With `--agent codex` no token env var exists: the harness stages a copy of the host's `~/.codex/auth.json` and hard-fails if its tokens are stale (>7 days since refresh) — the fix is running any codex command on the host first.
 - Same check name in two `--checks-dir`s is a hard error (rename, no precedence); a missing dir or empty union aborts loudly.
 - From a clone of this repo without a global install: `pnpm doublecheck check …`.
 

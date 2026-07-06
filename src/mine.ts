@@ -2,7 +2,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import PQueue from "p-queue"
-import { type AgentRun, progressSink, resolveAgentRun } from "./agent-cli.ts"
+import {
+	type AgentRun,
+	progressSink,
+	resolveAgentCli,
+	resolveAgentRun,
+} from "./agent-cli.ts"
 import {
 	composeObservationsFile,
 	enumerateUnits,
@@ -126,6 +131,10 @@ async function mineOneUnit(
 // print the plan (dry-run) or run one sandboxed agent per pending unit.
 // Returns true when nothing it attempted failed.
 export async function runMine(opts: MineOpts): Promise<boolean> {
+	// Validate the agent name before the dry-run/nothing-pending short-circuits
+	// so a bad --agent errors on every invocation; the credentials preflight
+	// stays below them (a dry run must not require credentials).
+	resolveAgentCli(opts.agent)
 	const entries = enumerateUnits(opts.projects).map((unit) => ({
 		unit,
 		status: unitStatus(unit, opts.catalog, opts.minTurns),

@@ -279,6 +279,44 @@ Each independently shippable, in order; no separate implementation plan
    Claude-transcript content to OpenAI, which the operator sanctioned
    designing for but not yet shipping.
 
+## Amendment (same day): what shipped, where it refined the text above
+
+All four slices shipped in one pass — including slice 4, originally marked
+"later": the mine live-verification privacy question dissolved once the
+smoke ran against a **synthetic** transcript (`--projects` pointed at a
+staged fake), so no personal transcript content went to OpenAI. Operator
+runs against real transcripts with `--agent codex` remain the operator's
+call at invocation time; the README states the data flow plainly.
+
+Refinements over the approved text, made during implementation and review:
+
+- **The model rides in the staged `config.toml` (`model = "…"`), not a
+  `-m` flag.** Spiked live before the change: identical behavior. This
+  removes the only operator-supplied value that was interpolated into the
+  guest's bash command string; the command is now a fixed literal.
+- **`AgentCli` gained `egressDomains: string[]`** (the interface block
+  above predates slice 4); `runner.ts`'s network option is now
+  `"all" | { onlyDomains: string[] }`, superseding the
+  `"anthropic-only"` enum described in `2026-07-05-mine-design.md`.
+- **`mine` validates `--agent` eagerly** (before the dry-run and
+  nothing-pending short-circuits) but preflights credentials only when it
+  will boot guests — a dry run must not require credentials.
+- **Accepted asymmetry:** the mine prompt's investigation vocabulary
+  ("Grep that turn's text…, then Read … with offset/limit") keeps claude's
+  tool names unparametrized. The live codex mine handled the vocabulary
+  fine (used `rg` and `sed` unprompted), and rewording would risk the
+  measured claude phrasing for a cosmetic gain.
+
+Live verification (2026-07-06, all exit 0): `check --target
+fixtures/planted --agent codex --save-jsonl` found exactly the two planted
+fallbacks, flagged neither legitimate default, produced the discipline
+ledger, and left a valid 31-event stream file; `mine --agent codex` over a
+synthetic transcript produced on-format observations under the
+codex egress allowlist; real-guest integration tests cover both egress
+shapes (world blocked, listed suffixes reachable); the host's `auth.json`
+was never modified by any run. An adversarial review workflow (4 reviewers,
+2 skeptics per finding) confirmed zero defects.
+
 ## Known unknowns, parked
 
 - The exact serde spelling of api-key-mode `auth_mode` (`"apikey"` vs
