@@ -35,7 +35,15 @@ program
 		"--context <file>",
 		"run-context file spliced into every inspector's prompt (intent, nuances, sanctioned exceptions, scope)",
 	)
-	.option("--model <model>", "model for the inspector agents", "haiku")
+	.option(
+		"--agent <name>",
+		"agent CLI that runs the inspectors: claude or codex",
+		"claude",
+	)
+	.option(
+		"--model <model>",
+		"model for the inspector agents (default per agent: claude haiku, codex gpt-5.5)",
+	)
 	.option("--parallel <n>", "max concurrent checks", parsePositiveInt("--parallel"), 4)
 	.option("--output <dir>", "reports root (default: $TARGET/.doublecheck)")
 	.option("--check <name>", "run only this check (repeatable)", collect, [] as string[])
@@ -53,6 +61,7 @@ program
 			target,
 			checksDirs,
 			contextFile: opts.context ? resolve(opts.context) : null,
+			agent: opts.agent,
 			model: opts.model,
 			parallel: opts.parallel,
 			output: opts.output ? resolve(opts.output) : join(target, ".doublecheck"),
@@ -74,7 +83,10 @@ program
 		"observation catalog root",
 		join(homedir(), ".doublecheck", "catalog"),
 	)
-	.option("--model <model>", "model for the mining agents", "opus")
+	.option(
+		"--model <model>",
+		"model for the mining agents (default: opus — a bad-model mine pollutes a durable asset)",
+	)
 	.option("--parallel <n>", "max concurrent miners", parsePositiveInt("--parallel"), 4)
 	.option(
 		"--min-turns <n>",

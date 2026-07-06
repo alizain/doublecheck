@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { codexAgent, describeCodexStreamLine } from "../src/codex.ts"
+import { codexAgent, describeCodexStreamLine, validateCodexAuth } from "../src/codex.ts"
 
 describe("codexAgent", () => {
 	const spec = codexAgent({
@@ -37,6 +37,48 @@ describe("codexAgent", () => {
 		expect(config?.content).toContain('cli_auth_credentials_store = "file"')
 		expect(config?.content).toContain("plugins = false")
 		expect(config?.content).toContain("apps = false")
+	})
+})
+
+describe("validateCodexAuth", () => {
+	const now = new Date("2026-07-06T00:00:00Z")
+	const chatgptAuth = (lastRefresh: string | undefined) =>
+		JSON.stringify({
+			auth_mode: "chatgpt",
+			tokens: { refresh_token: "rt", access_token: "at", id_token: "jwt" },
+			...(lastRefresh === undefined ? {} : { last_refresh: lastRefresh }),
+		})
+
+	it("accepts freshly refreshed ChatGPT tokens", () => {
+		expect(() =>
+			validateCodexAuth(chatgptAuth("2026-07-05T12:00:00Z"), now, "auth.json"),
+		).not.toThrow()
+	})
+
+	it("rejects tokens older than the guard window — a guest-side refresh would poison the host session", () => {
+		expect(() =>
+			validateCodexAuth(chatgptAuth("2026-06-28T00:00:00Z"), now, "auth.json"),
+		).toThrow(/run any codex command on the host to refresh/)
+	})
+
+	it("rejects ChatGPT tokens with no last_refresh at all", () => {
+		expect(() => validateCodexAuth(chatgptAuth(undefined), now, "auth.json")).toThrow(
+			/refresh/,
+		)
+	})
+
+	it("accepts an api-key-mode auth.json without any staleness guard", () => {
+		const auth = JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: "sk-x" })
+		expect(() => validateCodexAuth(auth, now, "auth.json")).not.toThrow()
+	})
+
+	it("rejects non-JSON and credential-less files with a next action", () => {
+		expect(() => validateCodexAuth("not json", now, "auth.json")).toThrow(
+			/codex login/,
+		)
+		expect(() => validateCodexAuth("{}", now, "auth.json")).toThrow(
+			/neither ChatGPT tokens nor an API key/,
+		)
 	})
 })
 

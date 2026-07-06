@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { claudeAgent, describeStreamLine } from "../src/claude.ts"
+import { claudeAgent, describeClaudeStreamLine } from "../src/claude.ts"
 
 describe("claudeAgent", () => {
 	const spec = claudeAgent({ token: "tok-123", model: "haiku", workdir: "/tmp/w" })
@@ -36,13 +36,13 @@ describe("claudeAgent", () => {
 	})
 })
 
-describe("describeStreamLine", () => {
+describe("describeClaudeStreamLine", () => {
 	it("labels assistant lines with text length", () => {
 		const line = JSON.stringify({
 			type: "assistant",
 			message: { content: [{ text: "hello" }] },
 		})
-		expect(describeStreamLine(line)).toBe("[assistant] 5 chars")
+		expect(describeClaudeStreamLine(line)).toBe("[assistant] 5 chars")
 	})
 
 	it("labels tool-use assistant turns with the tool names", () => {
@@ -55,7 +55,7 @@ describe("describeStreamLine", () => {
 				],
 			},
 		})
-		expect(describeStreamLine(line)).toBe("[assistant] Bash,Read")
+		expect(describeClaudeStreamLine(line)).toBe("[assistant] Bash,Read")
 	})
 
 	it("labels result lines with subtype and duration", () => {
@@ -64,10 +64,10 @@ describe("describeStreamLine", () => {
 			subtype: "success",
 			duration_ms: 12500,
 		})
-		expect(describeStreamLine(line)).toBe("[result:success] success, 12.5s")
+		expect(describeClaudeStreamLine(line)).toBe("[result:success] success, 12.5s")
 	})
 
 	it("returns null for non-JSON lines", () => {
-		expect(describeStreamLine("plain text")).toBeNull()
+		expect(describeClaudeStreamLine("plain text")).toBeNull()
 	})
 })

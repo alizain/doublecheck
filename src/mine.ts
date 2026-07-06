@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import PQueue from "p-queue"
+import { type AgentRun, progressSink, resolveAgentRun } from "./agent-cli.ts"
 import {
 	composeObservationsFile,
 	enumerateUnits,
@@ -10,14 +11,14 @@ import {
 	type UnitStatus,
 	unitStatus,
 } from "./catalog.ts"
-import { claudeAgent, progressSink } from "./claude.ts"
 import { composeMinePrompt, PROMPT_FILE } from "./contract.ts"
 import { runAgent } from "./runner.ts"
 
 export interface MineOpts {
 	projects: string
 	catalog: string
-	model: string
+	// Absent = the agent CLI's default for mining.
+	model?: string
 	parallel: number
 	minTurns: number
 	limit?: number
@@ -72,12 +73,19 @@ export function dryRunRow({ unit, status }: Pending): string {
 async function mineOneUnit(
 	{ unit, status }: Pending,
 	opts: MineOpts,
-	token: string,
+	run: AgentRun,
 ): Promise<boolean> {
 	const tag = unit.session.slice(0, 8)
 	const workdir = mkdtempSync(join(tmpdir(), `doublecheck-mine-${tag}-`))
-	writeFileSync(join(workdir, PROMPT_FILE), composeMinePrompt(status.digest, workdir))
-	const spec = claudeAgent({ token, model: opts.model, workdir })
+	writeFileSync(
+		join(workdir, PROMPT_FILE),
+		composeMinePrompt(status.digest, workdir, run.cli.writeToolPhrase),
+	)
+	const spec = run.cli.agent({
+		credentials: run.credentials,
+		model: run.model,
+		workdir,
+	})
 	process.stderr.write(
 		`[${tag}] mining ${unit.project}/${unit.session} (${status.turns} turns, ${status.reason})\n`,
 	)
@@ -86,7 +94,7 @@ async function mineOneUnit(
 		workdir,
 		spec,
 		network: "anthropic-only",
-		onLine: progressSink(tag),
+		onLine: progressSink(tag, run.cli.describeStreamLine),
 	})
 	// A failed mine writes NOTHING — the catalog is a durable asset; the next
 	// run retries this unit because no hash gets recorded.
@@ -103,7 +111,7 @@ async function mineOneUnit(
 				source: unit.jsonlPath,
 				sourceSha256: status.sourceSha256,
 				minedAt: new Date().toISOString(),
-				model: opts.model,
+				model: run.model,
 				humanTurns: status.turns,
 			},
 			outcome.report,
@@ -133,15 +141,10 @@ export async function runMine(opts: MineOpts): Promise<boolean> {
 	}
 	if (plan.todo.length === 0) return true
 
-	const token = process.env.CLAUDE_CODE_OAUTH_TOKEN
-	if (!token) {
-		throw new Error(
-			"CLAUDE_CODE_OAUTH_TOKEN is required in the environment (it is injected into each miner's sandbox)",
-		)
-	}
+	const run = resolveAgentRun("claude", opts.model, "mine")
 	const queue = new PQueue({ concurrency: opts.parallel })
 	const results = await Promise.all(
-		plan.todo.map((p) => queue.add(() => mineOneUnit(p, opts, token))),
+		plan.todo.map((p) => queue.add(() => mineOneUnit(p, opts, run))),
 	)
 	const failed = results.filter((ok) => ok !== true).length
 	process.stderr.write(

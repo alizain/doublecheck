@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import PQueue from "p-queue"
-import { claudeAgent, progressSink } from "./claude.ts"
+import { type AgentRun, progressSink, resolveAgentRun } from "./agent-cli.ts"
 import { composePrompt, PROMPT_FILE, REPORT_FILE } from "./contract.ts"
 import { runAgent } from "./runner.ts"
 
@@ -71,7 +71,9 @@ export interface CheckWorkflowOpts {
 	target: string
 	checksDirs: string[]
 	contextFile: string | null
-	model: string
+	agent: string
+	// Absent = the agent CLI's default for checks.
+	model?: string
 	parallel: number
 	output: string
 	only: string[]
@@ -97,7 +99,7 @@ export function failureReport(reason: string, partialReport: string | null): str
 async function runOneCheck(
 	check: Check,
 	opts: CheckWorkflowOpts,
-	token: string,
+	run: AgentRun,
 	runContext: string | null,
 	outDir: string,
 ): Promise<boolean> {
@@ -109,14 +111,19 @@ async function runOneCheck(
 			target: opts.target,
 			workdir,
 			runContext,
+			writeTool: run.cli.writeToolPhrase,
 		}),
 	)
-	const spec = claudeAgent({ token, model: opts.model, workdir })
+	const spec = run.cli.agent({
+		credentials: run.credentials,
+		model: run.model,
+		workdir,
+	})
 	// The report is the verdict; with --save-jsonl the raw stream is kept
 	// beside it so a run can be audited after the ephemeral guest is gone
 	// (which files the inspector read, what it skipped, whether report claims
 	// trace to actual observations).
-	const sink = progressSink(check.name)
+	const sink = progressSink(check.name, run.cli.describeStreamLine)
 	let onLine = sink
 	if (opts.saveJsonl) {
 		const streamPath = join(outDir, `${check.name}.stream.jsonl`)
@@ -147,12 +154,7 @@ async function runOneCheck(
 // guests at once. Returns true only when every check produced a report; agent
 // failures still write a failure-record report and flip the run to false.
 export async function runChecks(opts: CheckWorkflowOpts): Promise<boolean> {
-	const token = process.env.CLAUDE_CODE_OAUTH_TOKEN
-	if (!token) {
-		throw new Error(
-			"CLAUDE_CODE_OAUTH_TOKEN is required in the environment (it is injected into each check's sandbox)",
-		)
-	}
+	const run = resolveAgentRun(opts.agent, opts.model, "check")
 	const checks = discoverChecks(opts.checksDirs, opts.only)
 	let runContext: string | null = null
 	if (opts.contextFile) {
@@ -167,12 +169,12 @@ export async function runChecks(opts: CheckWorkflowOpts): Promise<boolean> {
 	const outDir = join(opts.output, runTimestamp(new Date()))
 	mkdirSync(outDir, { recursive: true })
 	process.stderr.write(
-		`${checks.length} check(s) against ${opts.target} (model ${opts.model}, parallel ${opts.parallel})\n`,
+		`${checks.length} check(s) against ${opts.target} (agent ${run.cli.name}, model ${run.model}, parallel ${opts.parallel})\n`,
 	)
 	const queue = new PQueue({ concurrency: opts.parallel })
 	const results = await Promise.all(
 		checks.map((check) =>
-			queue.add(() => runOneCheck(check, opts, token, runContext, outDir)),
+			queue.add(() => runOneCheck(check, opts, run, runContext, outDir)),
 		),
 	)
 	return results.every((ok) => ok === true)

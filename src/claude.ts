@@ -57,7 +57,7 @@ interface StreamLine {
 
 // One human-readable label per stream-json stdout line; null for lines that
 // aren't claude's JSON (dropped from the progress stream).
-export function describeStreamLine(line: string): string | null {
+export function describeClaudeStreamLine(line: string): string | null {
 	let obj: StreamLine
 	try {
 		obj = JSON.parse(line) as StreamLine
@@ -79,20 +79,4 @@ export function describeStreamLine(line: string): string | null {
 		detail = ` ${obj.subtype}, ${((obj.duration_ms ?? 0) / 1000).toFixed(1)}s`
 	}
 	return `[${label}]${detail}`
-}
-
-// The per-unit progress sink both workflow shells hang on runAgent: guest
-// stderr passes through as `[label] ! line`, stdout is claude's stream-json,
-// labelled by describeStreamLine (non-JSON and heartbeat lines dropped).
-export function progressSink(
-	label: string,
-): (kind: "stdout" | "stderr", line: string) => void {
-	return (kind, line) => {
-		if (kind === "stderr") {
-			process.stderr.write(`[${label}] ! ${line}\n`)
-			return
-		}
-		const described = describeStreamLine(line)
-		if (described) process.stderr.write(`[${label}] ${described}\n`)
-	}
 }

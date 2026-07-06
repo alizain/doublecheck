@@ -7,6 +7,7 @@ describe("composePrompt", () => {
 		target: "/some/target",
 		workdir: "/scratch/wd",
 		runContext: null,
+		writeTool: "with the Write tool",
 	})
 
 	it("carries the check body verbatim between environment and report contract", () => {
@@ -54,12 +55,41 @@ describe("composePrompt", () => {
 			target: "/t",
 			workdir: "/w",
 			runContext: "## Scope\n\nfile.ts",
+			writeTool: "with the Write tool",
 		})
 		expect(withContext).toContain("not where survivors may hide")
 	})
 
 	it("has no run-context section when none is given", () => {
 		expect(prompt).not.toContain("## Run context")
+	})
+
+	// The exact claude wording is hard-won (haiku's report compliance went
+	// ~50% → 3/3 with it) — pin it byte-for-byte.
+	it("names the agent's write tool when given one", () => {
+		expect(prompt).toContain(
+			`create \`/scratch/wd/${REPORT_FILE}\` with the Write tool (a title line is enough)`,
+		)
+		expect(prompt).toContain(
+			`create \`/scratch/wd/${REPORT_FILE}\` with the Write tool BEFORE you start inspecting`,
+		)
+	})
+
+	it("omits the tool phrase cleanly for agents without a named write tool", () => {
+		const toolless = composePrompt({
+			checkBody: "CHECK",
+			target: "/t",
+			workdir: "/scratch/wd",
+			runContext: null,
+			writeTool: null,
+		})
+		expect(toolless).not.toContain("Write tool")
+		expect(toolless).toContain(
+			`create \`/scratch/wd/${REPORT_FILE}\` (a title line is enough)`,
+		)
+		expect(toolless).toContain(
+			`create \`/scratch/wd/${REPORT_FILE}\` BEFORE you start inspecting`,
+		)
 	})
 
 	it("splices run context between environment and check body, with framing", () => {
@@ -69,6 +99,7 @@ describe("composePrompt", () => {
 			workdir: "/scratch/wd",
 			runContext:
 				"## Intent\n\nShip the v3 cutover.\n\n## Scope\n\npackages/engine/lib/engine.ts",
+			writeTool: "with the Write tool",
 		})
 		expect(withContext.indexOf("## Environment")).toBeLessThan(
 			withContext.indexOf("## Run context (from the operator)"),
@@ -85,7 +116,11 @@ describe("composePrompt", () => {
 
 describe("composeMinePrompt", () => {
 	it("orders report creation first at the absolute workdir path", () => {
-		const prompt = composeMinePrompt("TURN 1: hello", "/scratch/mine")
+		const prompt = composeMinePrompt(
+			"TURN 1: hello",
+			"/scratch/mine",
+			"with the Write tool",
+		)
 		expect(prompt).toContain(`/scratch/mine/${REPORT_FILE}`)
 		expect(prompt.indexOf("Your FIRST action")).toBeLessThan(
 			prompt.indexOf("TURN 1: hello"),
