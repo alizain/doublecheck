@@ -69,13 +69,23 @@ missing token / checks / image abort loudly up front.
 npm install -g @alizain/doublecheck   # installs the `doublecheck` command; or, from a clone: pnpm install
 ```
 
-Guests boot from a locally built image with both agent CLIs baked in. Build
-it once from a clone of this repo (needs a running Docker daemon; rebuild to
-pick up newer CLIs):
+Guests boot from an image with both agent CLIs baked in. An installed release
+needs no image step: the runner resolves
+`ghcr.io/alizain/doublecheck-guest:<its own version>` and pulls it on first
+run (~1 GB, once per version — the release workflow publishes it for
+amd64+arm64 alongside the npm package).
+
+From a clone (version `0.0.0-development`) guests use a locally built image
+instead. Build it once (needs a running Docker daemon; rebuild to pick up
+newer agent CLIs):
 
 ```bash
 ./scripts/build-guest-image.sh
 ```
+
+`DOUBLECHECK_GUEST_IMAGE=<ref>` overrides the image for any install — the
+named ref must already be in the microsandbox cache (it is never pulled);
+useful offline or for custom guest images.
 
 ## Usage
 
@@ -191,8 +201,19 @@ pushing to main.
 
 ```bash
 gh workflow run release -f dry_run=true    # preview next version + notes, publish nothing
-gh workflow run release -f dry_run=false   # ship: npm publish + GitHub Release + tag
+gh workflow run release -f dry_run=false   # ship: npm publish + GitHub Release + tag + guest image
+gh workflow run release -f image_version=X.Y.Z  # no release: (re)build + push the guest image
+                                                # for an existing version (recovery, or refreshing
+                                                # the baked-in agent CLIs)
 ```
+
+A real release also builds `Dockerfile.guest` for amd64+arm64 and pushes
+`ghcr.io/alizain/doublecheck-guest:<version>` (+ `:latest`) — the image
+installed CLIs pull at runtime. The ghcr package must be **public** for those
+unauthenticated pulls (one-time visibility flip in the package settings after
+the very first push). `image_version` mutates an existing tag in place;
+machines that already pulled it keep their cached copy (the runner pulls
+if-missing and never re-checks).
 
 - **Only `feat:` / `fix:` / `BREAKING CHANGE:` commits trigger a release** and
   decide the bump (minor / patch / major). Other commit styles ride along

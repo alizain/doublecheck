@@ -1,17 +1,31 @@
 name: release
 
-# Manual, semantic-release-driven publish of doublecheck to npm.
+# Manual, semantic-release-driven publish of doublecheck: npm package first,
+# then the guest image the runner pulls at runtime.
 #
 # semantic-release reads the Conventional Commit history, derives the next
-# version, publishes to npm, and cuts the matching GitHub Release. This workflow
-# only runs on demand (workflow_dispatch) so a release is always a deliberate
-# act, not a side effect of pushing to main. The `dry_run` input defaults to
-# true: the first run previews the next version + notes and publishes NOTHING;
-# re-run with it unchecked to actually ship.
+# version, publishes to npm, and cuts the matching GitHub Release. The
+# guest-image job then builds Dockerfile.guest for amd64+arm64 and pushes
+# ghcr.io/alizain/doublecheck-guest:<version> (+ :latest) — the runner resolves
+# that tag from its own package version and pulls it if-missing, so installed
+# CLIs are self-provisioning. This workflow only runs on demand
+# (workflow_dispatch) so a release is always a deliberate act, not a side
+# effect of pushing to main. The `dry_run` input defaults to true: the first
+# run previews the next version + notes and publishes NOTHING; re-run with it
+# unchecked to actually ship.
+#
+# `image_version` skips the release entirely and (re)builds + pushes the guest
+# image for an ALREADY-RELEASED version. Two uses: recovery when the image job
+# failed after a successful npm publish, and refreshing the baked-in agent
+# CLIs (claude/codex install at image-build time) without cutting a release.
+# Note the tag is mutated in place: machines that already pulled it keep their
+# cached copy (the runner pulls if-missing, never re-checks).
 #
 # PRECONDITION: the NPM_TOKEN repo secret must hold a granular npm token with
 # publish rights (including new-package creation for `doublecheck`).
-# GITHUB_TOKEN is provided by Actions.
+# GITHUB_TOKEN is provided by Actions (guest-image needs packages: write; the
+# ghcr package must be PUBLIC for unauthenticated runtime pulls — one-time
+# visibility flip in the package's settings after the first push).
 #
 # Auth is pure NPM_TOKEN (matching pggit). We deliberately do NOT enable npm
 # provenance / id-token: write — on npm CLI 11.x, the presence of id-token
@@ -27,6 +41,10 @@ on:
         description: "Dry run — compute the next version + notes, publish nothing"
         type: boolean
         default: true
+      image_version:
+        description: "Skip the release; (re)build + push the guest image for this already-released version (e.g. 2.2.0)"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -34,12 +52,15 @@ permissions:
 jobs:
   release:
     name: Release (semantic-release)
+    if: inputs.image_version == ''
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write # @semantic-release/github creates the Release + tag
       issues: write # comments on released issues
       pull-requests: write # comments on released PRs
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -61,8 +82,62 @@ jobs:
       - name: Build
         # tsdown -> dist/cli.mjs; the published tarball is `files`.
         run: pnpm run build
+      - name: Snapshot the latest tag
+        # semantic-release has no first-class "what did I publish" output; the
+        # tag it pushes is the durable record, so the published version is
+        # detected as "the highest v* tag changed across the release step".
+        id: before
+        run: echo "tag=$(git tag -l 'v*' | sort -V | tail -1)" >> "$GITHUB_OUTPUT"
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release ${{ inputs.dry_run && '--dry-run' || '' }}
+      - name: Detect the published version
+        # Empty on a dry run or when no releasable commits exist — the
+        # guest-image job keys off this and skips.
+        id: version
+        run: |
+          git fetch --tags --force --quiet
+          after=$(git tag -l 'v*' | sort -V | tail -1)
+          if [ -n "$after" ] && [ "$after" != "${{ steps.before.outputs.tag }}" ]; then
+            echo "version=${after#v}" >> "$GITHUB_OUTPUT"
+            echo "published $after"
+          else
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "no release published"
+          fi
+
+  guest-image:
+    name: Build + push guest image (amd64 + arm64)
+    # Runs when this dispatch released a version, or when image_version names
+    # an existing one. QEMU cross-build is fine here: the arm64 layers are apt
+    # + npm installs of prebuilt static binaries, no compilation.
+    needs: release
+    if: ${{ !cancelled() && (inputs.image_version != '' || needs.release.outputs.version != '') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write # push to ghcr
+    env:
+      VERSION: ${{ inputs.image_version || needs.release.outputs.version }}
+      IMAGE: ghcr.io/${{ github.repository_owner }}/doublecheck-guest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build + push ${{ env.IMAGE }}:${{ env.VERSION }}
+        run: |
+          docker buildx build -f Dockerfile.guest \
+            --platform linux/amd64,linux/arm64 \
+            --provenance=false \
+            -t "$IMAGE:$VERSION" -t "$IMAGE:latest" \
+            --push .
+      - name: Inspect the pushed manifest
+        run: docker buildx imagetools inspect "$IMAGE:$VERSION"

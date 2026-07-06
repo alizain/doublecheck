@@ -1,5 +1,32 @@
 import { describe, expect, it } from "vitest"
-import { decideOutcome, feedLines } from "../src/runner.ts"
+import { DEV_VERSION, decideGuestImage, decideOutcome, feedLines } from "../src/runner.ts"
+
+describe("decideGuestImage", () => {
+	it("a released version pulls its matching ghcr image if missing", () => {
+		expect(decideGuestImage("2.2.0")).toEqual({
+			ref: "ghcr.io/alizain/doublecheck-guest:2.2.0",
+			pullPolicy: "if-missing",
+		})
+	})
+
+	it("a dev tree uses the locally built image and never pulls", () => {
+		expect(decideGuestImage(DEV_VERSION)).toEqual({
+			ref: "doublecheck-guest:latest",
+			pullPolicy: "never",
+		})
+	})
+
+	it("an operator override is used as-is and never pulled", () => {
+		expect(decideGuestImage("2.2.0", "my-image:custom")).toEqual({
+			ref: "my-image:custom",
+			pullPolicy: "never",
+		})
+	})
+
+	it("an empty override does not count as an override", () => {
+		expect(decideGuestImage(DEV_VERSION, "").ref).toBe("doublecheck-guest:latest")
+	})
+})
 
 describe("feedLines", () => {
 	it("emits complete lines and carries the unterminated tail", () => {

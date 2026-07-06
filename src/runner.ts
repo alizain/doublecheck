@@ -14,12 +14,43 @@ type ExecOptionsBuilder = InstanceType<typeof import("microsandbox").ExecOptions
 // biome-ignore lint/suspicious/noExplicitAny: SDK types this builder callback as any
 type NetworkBuilder = any
 
-// Locally built (Dockerfile.guest): node 24 slim + git/ripgrep/curl/wget + the
-// claude CLI baked in. Side-loaded into the microsandbox cache by
-// ./scripts/build-guest-image.sh — it exists nowhere else, hence pullPolicy
-// "never": a cache miss means "run the build script", not "try Docker Hub".
-const GUEST_IMAGE = "doublecheck-guest:latest"
+// The guest image (Dockerfile.guest): node 24 slim + git/ripgrep/curl/wget +
+// both agent CLIs baked in. Released versions pull the multi-arch image the
+// release workflow pushed to ghcr (tag = the package's own version, so CLI
+// and image always match); a dev tree (version 0.0.0-development) uses the
+// locally built image side-loaded by ./scripts/build-guest-image.sh, which
+// exists nowhere else — hence pullPolicy "never": a cache miss means "run the
+// build script", not "try a registry".
+const GUEST_IMAGE_REPO = "ghcr.io/alizain/doublecheck-guest"
+const LOCAL_GUEST_IMAGE = "doublecheck-guest:latest"
+export const DEV_VERSION = "0.0.0-development"
 const GUEST_MEMORY_MIB = 2048
+
+export interface GuestImage {
+	ref: string
+	pullPolicy: "never" | "if-missing"
+}
+
+// Pure: which image this doublecheck runs its guests from. An override (the
+// DOUBLECHECK_GUEST_IMAGE env var) is operator-managed: it must already be in
+// the msb cache, so it is never pulled.
+export function decideGuestImage(version: string, override?: string): GuestImage {
+	if (override) return { ref: override, pullPolicy: "never" }
+	if (version === DEV_VERSION) return { ref: LOCAL_GUEST_IMAGE, pullPolicy: "never" }
+	return { ref: `${GUEST_IMAGE_REPO}:${version}`, pullPolicy: "if-missing" }
+}
+
+// Read at runtime, not import time: the dist bundle is built BEFORE
+// semantic-release stamps the real version into the published package.json,
+// so baking the version in at build time would pin every install to
+// 0.0.0-development. Works from both src/ (tsx) and dist/ (bundle) — each
+// sits one level below the package root.
+function packageVersion(): string {
+	const pkg = JSON.parse(
+		readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
+	) as { version: string }
+	return pkg.version
+}
 
 // Staged into the guest before boot (e.g. claude's trust-accepted config).
 export interface GuestFile {
@@ -100,6 +131,7 @@ export interface RunAgentOpts {
 export async function runAgent(opts: RunAgentOpts): Promise<AgentOutcome> {
 	const microsandbox = await import("microsandbox")
 	const name = `doublecheck-${basename(opts.workdir)}`
+	const image = decideGuestImage(packageVersion(), process.env.DOUBLECHECK_GUEST_IMAGE)
 	const network = opts.network
 	const policy =
 		network === "all"
@@ -118,9 +150,9 @@ export async function runAgent(opts: RunAgentOpts): Promise<AgentOutcome> {
 	try {
 		try {
 			sandbox = await microsandbox.Sandbox.builder(name)
-				.image(GUEST_IMAGE)
+				.image(image.ref)
 				.memory(GUEST_MEMORY_MIB)
-				.pullPolicy("never")
+				.pullPolicy(image.pullPolicy)
 				.replace()
 				.workdir(opts.workdir)
 				.envs(opts.spec.env)
@@ -136,9 +168,14 @@ export async function runAgent(opts: RunAgentOpts): Promise<AgentOutcome> {
 				.network((nb: NetworkBuilder) => nb.policy(policy))
 				.create()
 		} catch (e) {
-			if (String(e).includes("not cached")) {
+			if (image.pullPolicy === "never" && String(e).includes("not cached")) {
 				throw new Error(
-					`guest image ${GUEST_IMAGE} is not in the microsandbox cache — run scripts/build-guest-image.sh (${String(e)})`,
+					`guest image ${image.ref} is not in the microsandbox cache — run scripts/build-guest-image.sh (${String(e)})`,
+				)
+			}
+			if (image.pullPolicy === "if-missing") {
+				throw new Error(
+					`guest ${image.ref} failed to boot — if this is a pull failure, check network access to ghcr.io and that the package is public; a locally built image can be forced with DOUBLECHECK_GUEST_IMAGE=doublecheck-guest:latest (${String(e)})`,
 				)
 			}
 			throw e
