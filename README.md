@@ -69,23 +69,26 @@ missing token / checks / image abort loudly up front.
 npm install -g @alizain/doublecheck   # installs the `doublecheck` command; or, from a clone: pnpm install
 ```
 
-Guests boot from an image with both agent CLIs baked in. An installed release
-needs no image step: the runner resolves
-`ghcr.io/alizain/doublecheck-guest:<its own version>` and pulls it on first
-run (~1 GB, once per version — the release workflow publishes it for
-amd64+arm64 alongside the npm package).
+Guests boot from an image with both agent CLIs baked in, and no install
+needs an image step. An installed release resolves
+`ghcr.io/alizain/doublecheck-guest:<its own version>`; a clone resolves the
+nearest release tag reachable from its checkout (`git describe`), so `git
+pull` bringing a new tag is also the image update. Either way the runner
+pulls the image on first use (~1 GB, once per version — the release workflow
+publishes it for amd64+arm64 alongside the npm package).
 
-From a clone (version `0.0.0-development`) guests use a locally built image
-instead. Build it once (needs a running Docker daemon; rebuild to pick up
-newer agent CLIs):
+The locally built image is only for iterating on `Dockerfile.guest` itself
+(needs a running Docker daemon), opted into explicitly:
 
 ```bash
 ./scripts/build-guest-image.sh
+DOUBLECHECK_GUEST_IMAGE=doublecheck-guest:latest pnpm doublecheck check …
 ```
 
-`DOUBLECHECK_GUEST_IMAGE=<ref>` overrides the image for any install — the
-named ref must already be in the microsandbox cache (it is never pulled);
-useful offline or for custom guest images.
+`DOUBLECHECK_GUEST_IMAGE=<ref>` works for any install — the named ref must
+already be in the microsandbox cache (it is never pulled); useful offline or
+for custom guest images. A clone with no reachable release tag (e.g. a
+shallow clone) falls back to the locally built image.
 
 ## Usage
 

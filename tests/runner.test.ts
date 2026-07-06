@@ -9,8 +9,15 @@ describe("decideGuestImage", () => {
 		})
 	})
 
-	it("a dev tree uses the locally built image and never pulls", () => {
-		expect(decideGuestImage(DEV_VERSION)).toEqual({
+	it("a dev tree pulls the release its checkout descends from", () => {
+		expect(decideGuestImage(DEV_VERSION, undefined, "2.2.0")).toEqual({
+			ref: "ghcr.io/alizain/doublecheck-guest:2.2.0",
+			pullPolicy: "if-missing",
+		})
+	})
+
+	it("a dev tree with no reachable release tag uses the locally built image, never pulled", () => {
+		expect(decideGuestImage(DEV_VERSION, undefined, null)).toEqual({
 			ref: "doublecheck-guest:latest",
 			pullPolicy: "never",
 		})

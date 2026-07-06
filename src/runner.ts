@@ -1,5 +1,7 @@
+import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import type { ExecEvent } from "microsandbox"
 import { REPORT_FILE } from "./contract.ts"
 
@@ -15,12 +17,16 @@ type ExecOptionsBuilder = InstanceType<typeof import("microsandbox").ExecOptions
 type NetworkBuilder = any
 
 // The guest image (Dockerfile.guest): node 24 slim + git/ripgrep/curl/wget +
-// both agent CLIs baked in. Released versions pull the multi-arch image the
-// release workflow pushed to ghcr (tag = the package's own version, so CLI
-// and image always match); a dev tree (version 0.0.0-development) uses the
-// locally built image side-loaded by ./scripts/build-guest-image.sh, which
-// exists nowhere else — hence pullPolicy "never": a cache miss means "run the
-// build script", not "try a registry".
+// both agent CLIs baked in. Every install pulls the multi-arch image the
+// release workflow pushed to ghcr: an installed release uses its own package
+// version as the tag, and a dev tree (version 0.0.0-development) resolves the
+// nearest release tag reachable from its checkout — so `git pull` bringing a
+// new tag IS the image update, and versioned tags keep the msb cache correct
+// forever. The locally built doublecheck-guest:latest is only for iterating
+// on the image itself, opted into via DOUBLECHECK_GUEST_IMAGE (or as the
+// fallback when the tree has no release tags at all, e.g. a shallow clone) —
+// it exists nowhere else, hence pullPolicy "never": a cache miss there means
+// "run scripts/build-guest-image.sh", not "try a registry".
 const GUEST_IMAGE_REPO = "ghcr.io/alizain/doublecheck-guest"
 const LOCAL_GUEST_IMAGE = "doublecheck-guest:latest"
 export const DEV_VERSION = "0.0.0-development"
@@ -33,11 +39,17 @@ export interface GuestImage {
 
 // Pure: which image this doublecheck runs its guests from. An override (the
 // DOUBLECHECK_GUEST_IMAGE env var) is operator-managed: it must already be in
-// the msb cache, so it is never pulled.
-export function decideGuestImage(version: string, override?: string): GuestImage {
+// the msb cache, so it is never pulled. `checkoutReleaseVersion` is the dev
+// tree's git-derived release version (null outside a tagged checkout).
+export function decideGuestImage(
+	version: string,
+	override?: string,
+	checkoutReleaseVersion?: string | null,
+): GuestImage {
 	if (override) return { ref: override, pullPolicy: "never" }
-	if (version === DEV_VERSION) return { ref: LOCAL_GUEST_IMAGE, pullPolicy: "never" }
-	return { ref: `${GUEST_IMAGE_REPO}:${version}`, pullPolicy: "if-missing" }
+	const release = version === DEV_VERSION ? checkoutReleaseVersion : version
+	if (!release) return { ref: LOCAL_GUEST_IMAGE, pullPolicy: "never" }
+	return { ref: `${GUEST_IMAGE_REPO}:${release}`, pullPolicy: "if-missing" }
 }
 
 // Read at runtime, not import time: the dist bundle is built BEFORE
@@ -50,6 +62,35 @@ function packageVersion(): string {
 		readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
 	) as { version: string }
 	return pkg.version
+}
+
+// The dev tree's release version: the nearest v* tag reachable from the
+// checkout, i.e. the release whose image matches this ancestry. Null when
+// there is no tag to be found (not a git repo, shallow clone, git absent) —
+// a legitimate state whose designed meaning is "use the locally built image".
+function checkoutReleaseVersion(): string | null {
+	try {
+		const tag = execFileSync(
+			"git",
+			[
+				"-C",
+				packageRoot(),
+				"describe",
+				"--tags",
+				"--abbrev=0",
+				"--match",
+				"v[0-9]*",
+			],
+			{ encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] },
+		).trim()
+		return tag.slice(1)
+	} catch {
+		return null
+	}
+}
+
+function packageRoot(): string {
+	return fileURLToPath(new URL("..", import.meta.url))
 }
 
 // Staged into the guest before boot (e.g. claude's trust-accepted config).
@@ -131,7 +172,12 @@ export interface RunAgentOpts {
 export async function runAgent(opts: RunAgentOpts): Promise<AgentOutcome> {
 	const microsandbox = await import("microsandbox")
 	const name = `doublecheck-${basename(opts.workdir)}`
-	const image = decideGuestImage(packageVersion(), process.env.DOUBLECHECK_GUEST_IMAGE)
+	const version = packageVersion()
+	const image = decideGuestImage(
+		version,
+		process.env.DOUBLECHECK_GUEST_IMAGE,
+		version === DEV_VERSION ? checkoutReleaseVersion() : null,
+	)
 	const network = opts.network
 	const policy =
 		network === "all"
@@ -170,7 +216,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<AgentOutcome> {
 		} catch (e) {
 			if (image.pullPolicy === "never" && String(e).includes("not cached")) {
 				throw new Error(
-					`guest image ${image.ref} is not in the microsandbox cache — run scripts/build-guest-image.sh (${String(e)})`,
+					`guest image ${image.ref} is not in the microsandbox cache — it is never pulled; scripts/build-guest-image.sh builds and side-loads ${LOCAL_GUEST_IMAGE} (${String(e)})`,
 				)
 			}
 			if (image.pullPolicy === "if-missing") {

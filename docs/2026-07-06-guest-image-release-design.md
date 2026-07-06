@@ -26,10 +26,18 @@ npm package and keyed to it:
   version (`decideGuestImage`): a released version boots
   `ghcr.io/alizain/doublecheck-guest:<version>` with
   `pullPolicy("if-missing")` — microsandbox pulls it on first use (the
-  ContextLayer pattern, verified in their `boot-sandbox.ts`); the dev tree
-  (`0.0.0-development`) keeps local `doublecheck-guest:latest` with `never`
-  and the build script. `DOUBLECHECK_GUEST_IMAGE=<ref>` overrides either
-  (operator-managed, never pulled).
+  ContextLayer pattern, verified in their `boot-sandbox.ts`). The dev tree
+  (`0.0.0-development`) resolves the nearest release tag reachable from its
+  checkout (`git describe --tags --match 'v[0-9]*'`) and pulls that pinned
+  version — chosen over a mutable `:latest` because `if-missing` would never
+  refresh it, `always` costs a registry check per boot and dies offline, and
+  the reachable tag keeps the image matched to the checkout's ancestry;
+  `git pull` bringing a new tag IS the seamless update. No reachable tag
+  (shallow clone, git absent) falls back to local `doublecheck-guest:latest`
+  with `never` and the build script. `DOUBLECHECK_GUEST_IMAGE=<ref>`
+  overrides everything (operator-managed, never pulled) — now also the
+  explicit opt-in for iterating on the image itself, since the dev default
+  is the released image.
 - **CLI/image coupling**: tag = package version, so an installed CLI always
   boots the image built for it. Version skew between machines is impossible
   by construction; versioned tags make the msb cache correct forever.
