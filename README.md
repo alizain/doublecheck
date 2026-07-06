@@ -138,6 +138,7 @@ end-to-end:
 
 ```bash
 CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check --target fixtures/planted --model haiku
+doublecheck check --target fixtures/planted --agent codex  # auth from ~/.codex/auth.json
 ```
 
 ## What the inspector sees
