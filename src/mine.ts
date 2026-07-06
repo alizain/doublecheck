@@ -17,6 +17,7 @@ import { runAgent } from "./runner.ts"
 export interface MineOpts {
 	projects: string
 	catalog: string
+	agent: string
 	// Absent = the agent CLI's default for mining.
 	model?: string
 	parallel: number
@@ -93,7 +94,7 @@ async function mineOneUnit(
 		mount: opts.projects,
 		workdir,
 		spec,
-		network: "anthropic-only",
+		network: { onlyDomains: run.cli.egressDomains },
 		onLine: progressSink(tag, run.cli.describeStreamLine),
 	})
 	// A failed mine writes NOTHING — the catalog is a durable asset; the next
@@ -141,7 +142,7 @@ export async function runMine(opts: MineOpts): Promise<boolean> {
 	}
 	if (plan.todo.length === 0) return true
 
-	const run = resolveAgentRun("claude", opts.model, "mine")
+	const run = resolveAgentRun(opts.agent, opts.model, "mine")
 	const queue = new PQueue({ concurrency: opts.parallel })
 	const results = await Promise.all(
 		plan.todo.map((p) => queue.add(() => mineOneUnit(p, opts, run))),

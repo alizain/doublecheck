@@ -7,6 +7,14 @@ describe("resolveAgentCli", () => {
 		expect(resolveAgentCli("codex").writeToolPhrase).toBeNull()
 	})
 
+	it("pins mine egress to each CLI's own API domains", () => {
+		expect(resolveAgentCli("claude").egressDomains).toEqual(["anthropic.com"])
+		expect(resolveAgentCli("codex").egressDomains).toEqual([
+			"chatgpt.com",
+			"openai.com",
+		])
+	})
+
 	it("carries per-workflow model defaults", () => {
 		expect(resolveAgentCli("claude").defaultModel).toEqual({
 			check: "haiku",

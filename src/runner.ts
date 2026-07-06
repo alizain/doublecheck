@@ -83,12 +83,13 @@ export interface RunAgentOpts {
 	// cwd at its identical host path, so the agent's report lands back on the host.
 	workdir: string
 	spec: AgentSpec
-	// "all" for checks (inspectors may research); "anthropic-only" for miners:
-	// the personal corpus is mounted, so the only reachable destination is the
-	// API the agent already sends its context to. NetworkPolicy.none() is not
-	// an option here — it kills DNS entirely and the adapter can't reach its
-	// own model API (measured: claude retries ~180s then exits 1).
-	network: "all" | "anthropic-only"
+	// "all" for checks (inspectors may research); a domain-suffix allowlist for
+	// miners: the personal corpus is mounted, so egress is pinned to the agent
+	// CLI's own API domains — the only reachable destination is the service
+	// the agent already sends its context to. NetworkPolicy.none() is not an
+	// option here — it kills DNS entirely and the adapter can't reach its own
+	// model API (measured: claude retries ~180s then exits 1).
+	network: "all" | { onlyDomains: string[] }
 	onLine: (kind: "stdout" | "stderr", line: string) => void
 }
 
@@ -99,12 +100,19 @@ export interface RunAgentOpts {
 export async function runAgent(opts: RunAgentOpts): Promise<AgentOutcome> {
 	const microsandbox = await import("microsandbox")
 	const name = `doublecheck-${basename(opts.workdir)}`
+	const network = opts.network
 	const policy =
-		opts.network === "all"
+		network === "all"
 			? microsandbox.NetworkPolicy.allowAll()
 			: microsandbox.NetworkPolicy.builder()
 					.defaultDeny()
-					.egress((rb) => rb.allow((d) => d.domainSuffix("anthropic.com")))
+					.egress((rb) => {
+						let rules = rb
+						for (const domain of network.onlyDomains) {
+							rules = rules.allow((d) => d.domainSuffix(domain))
+						}
+						return rules
+					})
 					.build()
 	let sandbox: InstanceType<typeof microsandbox.Sandbox> | null = null
 	try {

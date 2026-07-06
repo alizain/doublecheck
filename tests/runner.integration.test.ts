@@ -55,13 +55,13 @@ describe("runAgent against a real guest", () => {
 	)
 
 	it(
-		'network "anthropic-only" blocks the world but resolves anthropic.com',
+		"a domain allowlist blocks the world but resolves the listed suffixes",
 		async () => {
 			const workdir = scratchWithPrompt()
 			const outcome = await runAgent({
 				mount: PROJECT,
 				workdir,
-				network: "anthropic-only",
+				network: { onlyDomains: ["anthropic.com"] },
 				// The report records the guest's own account: example.com must be
 				// unreachable while api.anthropic.com answers (any HTTP status —
 				// reachability is the property, not authorization).
@@ -76,6 +76,33 @@ describe("runAgent against a real guest", () => {
 			expect(outcome).toEqual({
 				ok: true,
 				report: "world-blocked\nanthropic-reached\n",
+			})
+		},
+		TIMEOUT,
+	)
+
+	it(
+		"a multi-domain allowlist (codex mine egress) resolves every listed suffix",
+		async () => {
+			const workdir = scratchWithPrompt()
+			const outcome = await runAgent({
+				mount: PROJECT,
+				workdir,
+				network: { onlyDomains: ["chatgpt.com", "openai.com"] },
+				// Reachability of both suffixes is the property under test (any
+				// HTTP status), plus the world staying blocked.
+				spec: fakeAgent(
+					[
+						"curl -sS --max-time 5 https://example.com -o /dev/null 2>/dev/null && echo world-reached > report.md || echo world-blocked > report.md",
+						"curl -sS --max-time 15 https://chatgpt.com -o /dev/null 2>/dev/null && echo chatgpt-reached >> report.md || echo chatgpt-blocked >> report.md",
+						"curl -sS --max-time 15 https://auth.openai.com -o /dev/null 2>/dev/null && echo openai-reached >> report.md || echo openai-blocked >> report.md",
+					].join("; "),
+				),
+				onLine: () => {},
+			})
+			expect(outcome).toEqual({
+				ok: true,
+				report: "world-blocked\nchatgpt-reached\nopenai-reached\n",
 			})
 		},
 		TIMEOUT,

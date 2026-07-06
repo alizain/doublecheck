@@ -16,6 +16,10 @@ export interface AgentCli {
 	// The phrase the report contract uses to tell this agent how to create a
 	// file; null when the prompt should just say "create <path>".
 	writeToolPhrase: string | null
+	// Domain suffixes for restricted-egress workflows (mine): the CLI's own
+	// API endpoints, so the only reachable destination is the service the
+	// agent already sends its context to.
+	egressDomains: string[]
 	// Host-side preflight: the secret material staged into every guest, or an
 	// actionable error. Runs once per invocation, before any guest boots.
 	credentials(): string
@@ -27,6 +31,7 @@ const claude: AgentCli = {
 	name: "claude",
 	defaultModel: { check: "haiku", mine: "opus" },
 	writeToolPhrase: "with the Write tool",
+	egressDomains: ["anthropic.com"],
 	credentials: () => {
 		const token = process.env.CLAUDE_CODE_OAUTH_TOKEN
 		if (!token) {
@@ -47,6 +52,10 @@ const codex: AgentCli = {
 	// guest config already pins xhigh reasoning effort (operator decision).
 	defaultModel: { check: "gpt-5.5", mine: "gpt-5.5" },
 	writeToolPhrase: null,
+	// ChatGPT-plan inference lives at chatgpt.com/backend-api/codex; the
+	// openai.com suffix covers auth.openai.com, where a 401-forced token
+	// refresh would have to go.
+	egressDomains: ["chatgpt.com", "openai.com"],
 	credentials: () => {
 		const authPath = join(homedir(), ".codex", "auth.json")
 		let content: string

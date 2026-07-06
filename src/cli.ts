@@ -83,9 +83,10 @@ program
 		"observation catalog root",
 		join(homedir(), ".doublecheck", "catalog"),
 	)
+	.option("--agent <name>", "agent CLI that runs the miners: claude or codex", "claude")
 	.option(
 		"--model <model>",
-		"model for the mining agents (default: opus — a bad-model mine pollutes a durable asset)",
+		"model for the mining agents (default per agent: claude opus, codex gpt-5.5 — a bad-model mine pollutes a durable asset)",
 	)
 	.option("--parallel <n>", "max concurrent miners", parsePositiveInt("--parallel"), 4)
 	.option(
@@ -100,6 +101,7 @@ program
 		const ok = await runMine({
 			projects: resolve(opts.projects),
 			catalog: resolve(opts.catalog),
+			agent: opts.agent,
 			model: opts.model,
 			parallel: opts.parallel,
 			minTurns: opts.minTurns,

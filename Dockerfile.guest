@@ -3,8 +3,9 @@
 #
 #   ./scripts/build-guest-image.sh
 #
-# Baking the claude CLI here (instead of `npm i -g` at every guest boot) pins
-# its version and cuts ~30s off each check run. Rebuild to pick up a newer CLI.
+# Baking the agent CLIs here (instead of `npm i -g` at every guest boot) pins
+# their versions and cuts ~30s off each check run. Rebuild to pick up newer
+# CLIs. One image serves both --agent values.
 # git is for check-authored scoping ("run `git diff main`" lives in check
 # prose); ripgrep because inspectors grep; curl/wget because checks may fetch
 # from the internet (node:*-slim ships none of these).
@@ -15,3 +16,8 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @anthropic-ai/claude-code
+
+# codex ships a static musl binary via platform optionalDependencies — never
+# add --omit=optional here or npm silently installs the JS launcher with no
+# binary in it.
+RUN npm install -g @openai/codex

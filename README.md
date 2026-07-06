@@ -47,9 +47,9 @@ Per check: a scratch workdir gets `prompt.txt` (environment preamble +
 operator run context, when given + check body + report contract). A [microsandbox](https://github.com/superradcompany/microsandbox)
 microVM boots from a locally built image with the project bind-mounted
 **read-only at its real host path** and the scratch dir mounted rw as the
-guest cwd. `claude -p` runs inside with the full inspector toolkit (Task,
-Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch) and no permission
-gates — the microVM is the safety boundary, the ro mount is the "don't touch
+guest cwd. The selected agent CLI (`--agent`: headless `claude -p`, or
+`codex exec`) runs inside with its full toolkit and no permission gates —
+the microVM is the safety boundary, the ro mount is the "don't touch
 my repo" guarantee. The agent writes `report.md`; the host copies it to
 `$OUTPUT/<run-timestamp>/<check>.md` (with `--save-jsonl`, alongside
 `<check>.stream.jsonl` — the inspector's raw stream, kept so a run can be
@@ -69,8 +69,9 @@ missing token / checks / image abort loudly up front.
 npm install -g @alizain/doublecheck   # installs the `doublecheck` command; or, from a clone: pnpm install
 ```
 
-Guests boot from a locally built image. Build it once from a clone of this
-repo (needs a running Docker daemon; rebuild to pick up a newer claude CLI):
+Guests boot from a locally built image with both agent CLIs baked in. Build
+it once from a clone of this repo (needs a running Docker daemon; rebuild to
+pick up newer CLIs):
 
 ```bash
 ./scripts/build-guest-image.sh
@@ -83,15 +84,26 @@ CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check \
   --target DIR       # tree under inspection, mounted read-only; default: cwd
   --checks-dir DIR   # repeatable; default: $TARGET/.agents/checks
   --context FILE     # run brief: intent, nuances, sanctioned exceptions, scope
-  --model MODEL      # default: haiku
+  --agent NAME       # claude (default) or codex
+  --model MODEL      # default per agent: claude haiku, codex gpt-5.5
   --parallel N       # default: 4 concurrent guests
   --output DIR       # default: $TARGET/.doublecheck
   --check NAME       # repeatable; default: every check in the checks dirs
   --save-jsonl       # persist each inspector's raw stream beside its report
 ```
 
-The token is required and injected into each guest; where it comes from is
-the operator's business.
+Credentials per agent, gathered on the host before any guest boots:
+
+- **claude**: `CLAUDE_CODE_OAUTH_TOKEN` is required in the environment and
+  injected into each guest; where it comes from is the operator's business.
+- **codex**: no env var — each guest gets a fresh copy of the host's
+  `~/.codex/auth.json` (run `codex login` once). For ChatGPT-plan auth the
+  run **hard-fails if the tokens were last refreshed over 7 days ago**:
+  codex self-refreshes at ~8 days, refresh tokens are single-use, and a
+  refresh inside a throwaway guest would rotate the token family and force
+  the host to re-login. Running any codex command on the host refreshes.
+  Residual risk: a mid-run 401 can still trigger a guest-side refresh.
+  Guests never write auth state back.
 
 ### Mining your Claude history into an observation catalog
 
@@ -101,13 +113,19 @@ turns) to extract durable engineering preferences into
 `~/.doublecheck/catalog`, mirroring the transcript tree — one
 `<project>/<session>/observations.md` per conversation, frontmatter recording
 the source hash so re-runs only mine new or grown sessions. Mining guests get
-egress to `*.anthropic.com` only. Design: `docs/2026-07-05-mine-design.md`.
+egress to the selected agent's own API domains only (`claude`:
+`*.anthropic.com`; `codex`: `*.chatgpt.com` + `*.openai.com`) — the one
+reachable destination is the service the agent already sends its context to.
+Note what that means for `--agent codex`: your Claude Code transcript
+content flows to OpenAI. Design: `docs/2026-07-05-mine-design.md`.
 
 ```bash
 CLAUDE_CODE_OAUTH_TOKEN=... doublecheck mine \
   --projects DIR     # default: ~/.claude/projects
   --catalog DIR      # default: ~/.doublecheck/catalog
-  --model MODEL      # default: opus (a bad-model mine pollutes a durable asset)
+  --agent NAME       # claude (default) or codex
+  --model MODEL      # default per agent: claude opus, codex gpt-5.5
+                     # (a bad-model mine pollutes a durable asset)
   --parallel N       # default: 4
   --min-turns N      # default: 2
   --limit N          # mine at most N pending conversations
@@ -126,12 +144,18 @@ CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check --target fixtures/planted --model 
 
 The facts of the agent's world, so you can decide how to author checks:
 
-- **The agent** is one headless `claude -p` per check (model from `--model`,
-  default haiku), running inside its own microVM with
-  `--dangerously-skip-permissions` — no permission gates; the VM is the
-  boundary. Its toolkit: Task (it can spawn subagents), Bash, Read, Write,
-  Edit, Glob, Grep, WebSearch, WebFetch. Check agents have unrestricted
-  internet egress.
+- **The agent** is one headless CLI process per check, running inside its
+  own microVM with all approval/permission gates bypassed — the VM is the
+  boundary. Check agents have unrestricted internet egress.
+  - `--agent claude` (default): `claude -p` (model from `--model`, default
+    haiku) with the pinned toolkit Task (it can spawn subagents), Bash,
+    Read, Write, Edit, Glob, Grep, WebSearch, WebFetch.
+  - `--agent codex`: `codex exec` (default model gpt-5.5, reasoning effort
+    pinned to xhigh in the staged guest config) with codex's own toolset:
+    shell, apply_patch, plan/todo, subagent spawning (multi_agent), and
+    server-side web search. The staged config disables codex's ambient
+    inputs — no AGENTS.md pickup, no plugin/marketplace fetch — so the
+    piped prompt is its only input, same as claude.
 - **Its only input is the prompt**: a short environment preamble (verbatim in
   `src/contract.ts`) + the operator's run context, when `--context` was given
   + the check body + the report contract. No session, no conversation history
@@ -156,7 +180,7 @@ pnpm typecheck   # tsc --noEmit
 pnpm check       # biome
 ```
 
-Design records: `docs/2026-07-05-doublecheck-design.md`, `docs/2026-07-05-run-context-and-decomposed-flags-design.md`. For how a driving agent should use this tool — above all, what a good `--context` brief contains — see `SKILL.md`.
+Design records: `docs/2026-07-05-doublecheck-design.md`, `docs/2026-07-05-run-context-and-decomposed-flags-design.md`, `docs/2026-07-06-codex-agent-design.md`. For how a driving agent should use this tool — above all, what a good `--context` brief contains — see `SKILL.md`.
 
 ## Releasing
 
