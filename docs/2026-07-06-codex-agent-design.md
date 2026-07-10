@@ -290,9 +290,7 @@ call at invocation time; the README states the data flow plainly.
 
 Refinements over the approved text, made during implementation and review:
 
-- **Reasoning effort default revised to `high`** (operator decision, same
-  day, after live runs): the config block below says `"xhigh"` as approved;
-  what ships is `model_reasoning_effort = "high"`.
+- **Reasoning effort default revised to `high`** (operator decision, same day, after live runs), then **restored to `xhigh` alongside a default-model bump to `gpt-5.6-sol`** (operator decision, 2026-07-10). The approved text says `gpt-5.5` with `"xhigh"`; what ships is `model = "gpt-5.6-sol"` with `model_reasoning_effort = "xhigh"`.
 
 - **The model rides in the staged `config.toml` (`model = "…"`), not a
   `-m` flag.** Spiked live before the change: identical behavior. This

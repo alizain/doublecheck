@@ -51,7 +51,7 @@ CLAUDE_CODE_OAUTH_TOKEN=$(cat <token-file>) doublecheck check \
   --context <brief-file> \
   --check <name> ... \        # subset while iterating; omit for the full set
   --agent claude \            # or codex; picks which agent CLI inspects
-  --model haiku \             # per-agent default: claude haiku, codex gpt-5.5;
+  --model haiku \             # per-agent default: claude haiku, codex gpt-5.6-sol;
                               # haiku to iterate; raise for real gates
   --output <reports-root>     # default $TARGET/.doublecheck — point elsewhere
                               # if you shouldn't write into the target repo

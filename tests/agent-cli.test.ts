@@ -21,8 +21,8 @@ describe("resolveAgentCli", () => {
 			mine: "opus",
 		})
 		expect(resolveAgentCli("codex").defaultModel).toEqual({
-			check: "gpt-5.5",
-			mine: "gpt-5.5",
+			check: "gpt-5.6-sol",
+			mine: "gpt-5.6-sol",
 		})
 	})
 

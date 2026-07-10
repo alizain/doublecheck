@@ -4,7 +4,7 @@ import { codexAgent, describeCodexStreamLine, validateCodexAuth } from "../src/c
 describe("codexAgent", () => {
 	const spec = codexAgent({
 		authJson: '{"tokens":{"refresh_token":"rt-123"}}',
-		model: "gpt-5.5",
+		model: "gpt-5.6-sol",
 		workdir: "/tmp/w",
 	})
 
@@ -15,7 +15,7 @@ describe("codexAgent", () => {
 		expect(spec.command).toContain("--ephemeral")
 		expect(spec.command).toContain("- < prompt.txt")
 		// The model rides in the staged config, never interpolated into bash.
-		expect(spec.command).not.toContain("gpt-5.5")
+		expect(spec.command).not.toContain("gpt-5.6-sol")
 	})
 
 	it("sets only the home codex needs — auth is a staged file, not an env var", () => {
@@ -27,13 +27,13 @@ describe("codexAgent", () => {
 		expect(auth?.content).toBe('{"tokens":{"refresh_token":"rt-123"}}')
 	})
 
-	it("stages a minimal guest config: model, no plugins/apps fetch, no AGENTS.md, high effort", () => {
+	it("stages a minimal guest config: model, no plugins/apps fetch, no AGENTS.md, xhigh effort", () => {
 		expect(spec.files).toHaveLength(2)
 		const config = spec.files.find((f) => f.path === "/root/.codex/config.toml")
-		expect(config?.content).toContain('model = "gpt-5.5"')
+		expect(config?.content).toContain('model = "gpt-5.6-sol"')
 		expect(config?.content).toContain('approval_policy = "never"')
 		expect(config?.content).toContain('sandbox_mode = "danger-full-access"')
-		expect(config?.content).toContain('model_reasoning_effort = "high"')
+		expect(config?.content).toContain('model_reasoning_effort = "xhigh"')
 		expect(config?.content).toContain('web_search = "live"')
 		expect(config?.content).toContain("project_doc_max_bytes = 0")
 		expect(config?.content).toContain('cli_auth_credentials_store = "file"')

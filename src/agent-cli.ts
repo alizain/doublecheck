@@ -49,8 +49,8 @@ const claude: AgentCli = {
 const codex: AgentCli = {
 	name: "codex",
 	// No haiku-style cheap default: plan billing is flat-rate, and the staged
-	// guest config already pins high reasoning effort (operator decision).
-	defaultModel: { check: "gpt-5.5", mine: "gpt-5.5" },
+	// guest config already pins xhigh reasoning effort (operator decision).
+	defaultModel: { check: "gpt-5.6-sol", mine: "gpt-5.6-sol" },
 	writeToolPhrase: null,
 	// ChatGPT-plan inference lives at chatgpt.com/backend-api/codex; the
 	// openai.com suffix covers auth.openai.com, where a 401-forced token

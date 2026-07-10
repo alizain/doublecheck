@@ -42,7 +42,7 @@ program
 	)
 	.option(
 		"--model <model>",
-		"model for the inspector agents (default per agent: claude haiku, codex gpt-5.5)",
+		"model for the inspector agents (default per agent: claude haiku, codex gpt-5.6-sol)",
 	)
 	.option("--parallel <n>", "max concurrent checks", parsePositiveInt("--parallel"), 4)
 	.option("--output <dir>", "reports root (default: $TARGET/.doublecheck)")
@@ -86,7 +86,7 @@ program
 	.option("--agent <name>", "agent CLI that runs the miners: claude or codex", "claude")
 	.option(
 		"--model <model>",
-		"model for the mining agents (default per agent: claude opus, codex gpt-5.5 — a bad-model mine pollutes a durable asset)",
+		"model for the mining agents (default per agent: claude opus, codex gpt-5.6-sol — a bad-model mine pollutes a durable asset)",
 	)
 	.option("--parallel <n>", "max concurrent miners", parsePositiveInt("--parallel"), 4)
 	.option(

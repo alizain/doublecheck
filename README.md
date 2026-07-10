@@ -98,7 +98,7 @@ CLAUDE_CODE_OAUTH_TOKEN=... doublecheck check \
   --checks-dir DIR   # repeatable; default: $TARGET/.agents/checks
   --context FILE     # run brief: intent, nuances, sanctioned exceptions, scope
   --agent NAME       # claude (default) or codex
-  --model MODEL      # default per agent: claude haiku, codex gpt-5.5
+  --model MODEL      # default per agent: claude haiku, codex gpt-5.6-sol
   --parallel N       # default: 4 concurrent guests
   --output DIR       # default: $TARGET/.doublecheck
   --check NAME       # repeatable; default: every check in the checks dirs
@@ -137,7 +137,7 @@ CLAUDE_CODE_OAUTH_TOKEN=... doublecheck mine \
   --projects DIR     # default: ~/.claude/projects
   --catalog DIR      # default: ~/.doublecheck/catalog
   --agent NAME       # claude (default) or codex
-  --model MODEL      # default per agent: claude opus, codex gpt-5.5
+  --model MODEL      # default per agent: claude opus, codex gpt-5.6-sol
                      # (a bad-model mine pollutes a durable asset)
   --parallel N       # default: 4
   --min-turns N      # default: 2
@@ -164,8 +164,8 @@ The facts of the agent's world, so you can decide how to author checks:
   - `--agent claude` (default): `claude -p` (model from `--model`, default
     haiku) with the pinned toolkit Task (it can spawn subagents), Bash,
     Read, Write, Edit, Glob, Grep, WebSearch, WebFetch.
-  - `--agent codex`: `codex exec` (default model gpt-5.5, reasoning effort
-    pinned to high in the staged guest config) with codex's own toolset:
+  - `--agent codex`: `codex exec` (default model gpt-5.6-sol, reasoning effort
+    pinned to xhigh in the staged guest config) with codex's own toolset:
     shell, apply_patch, plan/todo, subagent spawning (multi_agent), and
     server-side web search. The staged config disables codex's ambient
     inputs — no AGENTS.md pickup, no plugin/marketplace fetch — so the
