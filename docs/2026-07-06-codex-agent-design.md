@@ -74,10 +74,7 @@ codex-cli 0.139.0, isolated `CODEX_HOME`, real ChatGPT-plan auth).
   fetch, no glibc/libssl requirement — runs on any Linux including the
   arm64 microVM). Cost: ~250 MB in the image. Never pass
   `--omit=optional`/`--no-optional` or the binary is silently skipped.
-- **Models** (docs, mid-2026): `gpt-5.5` is the recommended default;
-  `gpt-5.4`, `gpt-5.4-mini` current; `gpt-5.2` and `gpt-5.3-codex`
-  deprecated for ChatGPT sign-in. Reasoning effort is the config key
-  `model_reasoning_effort`.
+- **Models** (docs, updated 2026-07-10): the GPT-5.6 family (Sol/Terra/Luna) went GA on 2026-07-09; `gpt-5.6-sol` is the top tier and codex's own default. At design time `gpt-5.5` was the recommended default, with `gpt-5.4`/`gpt-5.4-mini` current and `gpt-5.2`/`gpt-5.3-codex` deprecated for ChatGPT sign-in. Reasoning effort is the config key `model_reasoning_effort` (GPT-5.6 accepts levels up to `xhigh` and `max`).
 
 ## Ontology
 
@@ -103,7 +100,7 @@ same concept.
   `mine` gains it in the mine slice (see Slices).
 - `--model`'s default becomes agent-dependent, applied only when `--model`
   is absent: claude → `haiku` (check) / `opus` (mine), unchanged; codex →
-  `gpt-5.5` for both workflows. Codex guests always run
+  `gpt-5.6-sol` for both workflows. Codex guests always run
   `model_reasoning_effort = "xhigh"` via the staged config (operator
   decision; plan billing is flat-rate, so there is no haiku-style cost
   gradient to encode in a cheaper default).
@@ -158,6 +155,7 @@ slice.
   - `/root/.codex/config.toml` — minimal and guest-only:
 
     ```toml
+    model = "gpt-5.6-sol"  # the operator's --model; default shown
     approval_policy = "never"
     sandbox_mode = "danger-full-access"
     model_reasoning_effort = "xhigh"
@@ -290,7 +288,7 @@ call at invocation time; the README states the data flow plainly.
 
 Refinements over the approved text, made during implementation and review:
 
-- **Reasoning effort default revised to `high`** (operator decision, same day, after live runs), then **restored to `xhigh` alongside a default-model bump to `gpt-5.6-sol`** (operator decision, 2026-07-10). The approved text says `gpt-5.5` with `"xhigh"`; what ships is `model = "gpt-5.6-sol"` with `model_reasoning_effort = "xhigh"`.
+- **Reasoning effort default revised to `high`** (operator decision, 2026-07-06, after live runs), then **restored to `xhigh` alongside a default-model bump to `gpt-5.6-sol`** (operator decision, 2026-07-10, on the GPT-5.6 GA). The body above has been updated to the shipping defaults; the originally approved text said `gpt-5.5` with `"xhigh"`.
 
 - **The model rides in the staged `config.toml` (`model = "…"`), not a
   `-m` flag.** Spiked live before the change: identical behavior. This
