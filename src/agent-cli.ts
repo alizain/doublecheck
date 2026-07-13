@@ -64,7 +64,7 @@ const codex: AgentCli = {
 		} catch {
 			throw new Error(`no readable ${authPath} — run \`codex login\` on the host`)
 		}
-		validateCodexAuth(content, new Date(), authPath)
+		validateCodexAuth(content, authPath)
 		return content
 	},
 	agent: ({ credentials, model, workdir }) =>

@@ -43,42 +43,33 @@ describe("codexAgent", () => {
 })
 
 describe("validateCodexAuth", () => {
-	const now = new Date("2026-07-06T00:00:00Z")
-	const chatgptAuth = (lastRefresh: string | undefined) =>
+	// No staleness guard (removed 2026-07-13, user): any auth.json carrying
+	// ChatGPT tokens stages regardless of last_refresh age.
+	const chatgptAuth = (lastRefresh?: string) =>
 		JSON.stringify({
 			auth_mode: "chatgpt",
 			tokens: { refresh_token: "rt", access_token: "at", id_token: "jwt" },
 			...(lastRefresh === undefined ? {} : { last_refresh: lastRefresh }),
 		})
 
-	it("accepts freshly refreshed ChatGPT tokens", () => {
+	it("accepts ChatGPT tokens regardless of refresh age (even with no last_refresh)", () => {
 		expect(() =>
-			validateCodexAuth(chatgptAuth("2026-07-05T12:00:00Z"), now, "auth.json"),
+			validateCodexAuth(chatgptAuth("2026-07-05T12:00:00Z"), "auth.json"),
 		).not.toThrow()
-	})
-
-	it("rejects tokens older than the guard window — a guest-side refresh would poison the host session", () => {
 		expect(() =>
-			validateCodexAuth(chatgptAuth("2026-06-28T00:00:00Z"), now, "auth.json"),
-		).toThrow(/run any codex command on the host to refresh/)
+			validateCodexAuth(chatgptAuth("2026-01-01T00:00:00Z"), "auth.json"),
+		).not.toThrow()
+		expect(() => validateCodexAuth(chatgptAuth(undefined), "auth.json")).not.toThrow()
 	})
 
-	it("rejects ChatGPT tokens with no last_refresh at all", () => {
-		expect(() => validateCodexAuth(chatgptAuth(undefined), now, "auth.json")).toThrow(
-			/refresh/,
-		)
-	})
-
-	it("accepts an api-key-mode auth.json without any staleness guard", () => {
+	it("accepts an api-key-mode auth.json", () => {
 		const auth = JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: "sk-x" })
-		expect(() => validateCodexAuth(auth, now, "auth.json")).not.toThrow()
+		expect(() => validateCodexAuth(auth, "auth.json")).not.toThrow()
 	})
 
 	it("rejects non-JSON and credential-less files with a next action", () => {
-		expect(() => validateCodexAuth("not json", now, "auth.json")).toThrow(
-			/codex login/,
-		)
-		expect(() => validateCodexAuth("{}", now, "auth.json")).toThrow(
+		expect(() => validateCodexAuth("not json", "auth.json")).toThrow(/codex login/)
+		expect(() => validateCodexAuth("{}", "auth.json")).toThrow(
 			/neither ChatGPT tokens nor an API key/,
 		)
 	})

@@ -70,39 +70,24 @@ export function codexAgent(opts: {
 	}
 }
 
-// The freshness window for a staged ChatGPT-auth auth.json. Codex refreshes
-// tokens when last_refresh is ~8 days old (or on a 401), refresh tokens are
-// single-use, and a refresh performed INSIDE a guest rotates the token family
-// — the host's copy then dies with "refresh token was already used" (forced
-// re-login). 7 days leaves a day of margin below codex's own threshold.
-export const CODEX_AUTH_MAX_AGE_DAYS = 7
-
 interface CodexAuth {
 	tokens?: { refresh_token?: string }
-	last_refresh?: string
 	OPENAI_API_KEY?: string
 }
 
 // Pure preflight: throw (with the operator's next action) unless this
-// auth.json is safe to stage into guests. An api-key-mode auth.json (no
-// tokens, an OPENAI_API_KEY field) carries no refresh semantics, so no
-// staleness guard applies.
-export function validateCodexAuth(content: string, now: Date, where: string): void {
+// auth.json carries credentials to stage into guests. No staleness guard
+// (removed 2026-07-13, user): a guest-side refresh of near-expiry ChatGPT
+// tokens can still rotate the single-use token family out from under the
+// host (forced re-login) — accepted; re-login is the recovery.
+export function validateCodexAuth(content: string, where: string): void {
 	let auth: CodexAuth
 	try {
 		auth = JSON.parse(content) as CodexAuth
 	} catch {
 		throw new Error(`${where} is not valid JSON — run \`codex login\` on the host`)
 	}
-	if (auth.tokens?.refresh_token) {
-		const ageDays = (now.getTime() - Date.parse(auth.last_refresh ?? "")) / 86_400_000
-		if (!(ageDays <= CODEX_AUTH_MAX_AGE_DAYS)) {
-			throw new Error(
-				`${where} tokens were last refreshed over ${CODEX_AUTH_MAX_AGE_DAYS} days ago (codex refreshes at ~8 days, and a refresh inside a guest would rotate the single-use refresh token and poison this host's session) — run any codex command on the host to refresh, then retry`,
-			)
-		}
-		return
-	}
+	if (auth.tokens?.refresh_token) return
 	if (auth.OPENAI_API_KEY) return
 	throw new Error(
 		`${where} has neither ChatGPT tokens nor an API key — run \`codex login\` on the host`,

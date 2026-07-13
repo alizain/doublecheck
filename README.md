@@ -110,13 +110,12 @@ Credentials per agent, gathered on the host before any guest boots:
 - **claude**: `CLAUDE_CODE_OAUTH_TOKEN` is required in the environment and
   injected into each guest; where it comes from is the operator's business.
 - **codex**: no env var — each guest gets a fresh copy of the host's
-  `~/.codex/auth.json` (run `codex login` once). For ChatGPT-plan auth the
-  run **hard-fails if the tokens were last refreshed over 7 days ago**:
-  codex self-refreshes at ~8 days, refresh tokens are single-use, and a
-  refresh inside a throwaway guest would rotate the token family and force
-  the host to re-login. Running any codex command on the host refreshes.
-  Residual risk: a mid-run 401 can still trigger a guest-side refresh.
-  Guests never write auth state back.
+  `~/.codex/auth.json` (run `codex login` once). No staleness guard
+  (removed 2026-07-13): accepted risk that a guest-side refresh of
+  near-expiry ChatGPT tokens rotates the single-use token family out from
+  under the host (codex self-refreshes at ~8 days; a mid-run 401 could do
+  the same regardless). Recovery is `codex login` on the host. Guests
+  never write auth state back.
 
 ### Mining your Claude history into an observation catalog
 

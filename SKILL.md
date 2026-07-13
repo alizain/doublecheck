@@ -57,7 +57,7 @@ CLAUDE_CODE_OAUTH_TOKEN=$(cat <token-file>) doublecheck check \
                               # if you shouldn't write into the target repo
 ```
 
-- Source the token by command substitution as above — never print it, never echo it into a transcript. With `--agent codex` no token env var exists: the harness stages a copy of the host's `~/.codex/auth.json` and hard-fails if its tokens are stale (>7 days since refresh) — the fix is running any codex command on the host first.
+- Source the token by command substitution as above — never print it, never echo it into a transcript. With `--agent codex` no token env var exists: the harness stages a copy of the host's `~/.codex/auth.json` (it must exist and carry ChatGPT tokens or an API key — `codex login` on the host if not).
 - Same check name in two `--checks-dir`s is a hard error (rename, no precedence); a missing dir or empty union aborts loudly.
 - From a clone of this repo without a global install: `pnpm doublecheck check …`.
 
